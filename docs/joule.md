@@ -124,9 +124,6 @@ Cases live in memory, so every API restart clears them. Re-run the demo scenario
   Verified in the web client on 2026-10-22: the button appears, and clicking it sends
   `approve 4500000091-10`, which executed the case (S/4 document 4500000105). Reject stays typed,
   because it needs a reason.
-- **Not yet deployed to the BTP tenant.** Verified locally:
-  - Unit and A2A tests: the exact `message/send` call, and the `artifacts[0].parts[0].text` path
-    the function reads.
-  - Both apps booted from a clean Python 3.13 install of the generated `requirements.txt`, as the
-    Cloud Foundry buildpack does it.
-  - The three conversations above, run over HTTP.
+- **Deployed and tested in the tenant (2026-10-21/22):** pending approvals, status, approve (typed and
+  with the button), reject (with and without a reason) and a blocked buyer request, all in the Joule
+  web client or against the deployed agent. Deploying and operating: `docs/operations.md`.

@@ -16,7 +16,9 @@ When a wood-fiber delivery slips, the agent works through these steps:
 
 ![Architecture](docs/img/architecture-system.png)
 
-Architecture as built, the flow of one case, and what isn't built yet: `docs/architecture.md`. Demo runbook: `docs/demo.md`.
+**Docs:** `docs/architecture.md` (as built, and what isn't) · `docs/demo.md` (Demo Day runbook) ·
+`docs/operations.md` (run, deploy, configure, secrets, troubleshooting) · `docs/agent.md` (agent internals, evals) ·
+`docs/api.md` · `docs/joule.md` · `docs/agentcore.md` · `docs/contracts.md`.
 
 ## Status
 
@@ -35,7 +37,7 @@ Architecture as built, the flow of one case, and what isn't built yet: `docs/arc
 | Joule: A2A agent + capability YAML (request, pending approvals, approve/reject in chat) (`src/synapse/joule/`, `joule/`, `docs/joule.md`) | M2 | **live**: assistant `synapsesupply_assistant` + destination `SYNAPSE_AGENT_YPDD`; approve-in-Joule tested end to end |
 | Cloud Foundry deployment of API + console + Joule agent (`manifest.yml`, `scripts/cf_prepare.sh`) | M2/M3 | **deployed** to the team space; both apps protected by keys; SC-02 runs live in 18 s (URLs in `docs/joule.md`) |
 | SAP RPT-1 delivery-risk prediction per supplier option (`sap/rpt.py`, `domain/delays.py`), shown in console and used in confidence | M2 | done, verified live against the team's AI Core |
-| CDK: poller → SQS FIFO → agent invoker → DynamoDB; Amplify hosting for `ui/` | M3 | next |
+| ERP poller → SQS FIFO → agent invoker → DynamoDB (AWS) | M3 | not built: blocked on AWS access; scenarios are triggered from the console instead |
 
 ## Quick start
 
@@ -91,9 +93,13 @@ src/synapse/policy/          Cedar policies, schema and the ALLOW/ESCALATE/DENY 
 src/synapse/agent/           toolkit, SOPs, prompts, model routing, triage, autopilot, service, CLI
 src/synapse/api/             HTTP API: cases, approvals, SSE trace, replay, demo control, serves ui/dist
 src/synapse/joule/           A2A agent for SAP Joule (chat -> API), deployable to Cloud Foundry
+src/synapse/agentcore.py     Amazon Bedrock AgentCore Runtime entry point (Dockerfile builds the ARM64 image)
+src/synapse/env.py           loads the git-ignored .env for local secrets
 joule/                       Joule capability (da.sapdas.yaml, scenarios, function)
 ui/                          React + TypeScript console (Vite), no UI library; chart is hand-built SVG
 recordings/                  recorded demo runs (JSONL) for the replay fallback
+scripts/                     cf_prepare.sh (Cloud Foundry build), eval_scenarios.py (regression eval)
+manifest.yml, runtime.txt    Cloud Foundry apps (API + console, Joule agent); Python 3.13 pin
 tests/                       unit, HTTP and "the data tells the story" tests
 ```
 
