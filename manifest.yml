@@ -22,6 +22,7 @@ applications:
       SYNAPSE_MODEL_PROVIDERS: aicore   # Bedrock: switch to "bedrock,aicore" once the AWS account is verified
       SYNAPSE_UI_DIR: ui/dist
       SYNAPSE_RECORDINGS_DIR: recordings
+      SYNAPSE_DEMO_BOOT_SCENARIO: SC-01   # a restart never leaves the demo without a case
       LITELLM_PROVIDER: sap
       AICORE_RESOURCE_GROUP: default
       AICORE_AUTH_URL: https://aws-sap-hackathon-si4ykj9d.authentication.ap10.hana.ondemand.com/oauth/token

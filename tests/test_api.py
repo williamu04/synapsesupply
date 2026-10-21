@@ -182,3 +182,27 @@ def test_browser_basic_auth_for_console_and_api(client, tmp_path):
     assert api.get("/cases", headers=bad).status_code == 401
     assert api.get("/cases", headers={"authorization": "Basic !!!"}).status_code == 401
     assert api.get("/health").status_code == 200
+
+
+def _wait_until(fn, timeout=10.0):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if (value := fn()) is not None:
+            return value
+        time.sleep(0.05)
+    raise AssertionError("timed out")
+
+
+def test_boot_scenario_is_staged_at_startup(client):
+    with TestClient(create_api(build_service(client), demo=DemoControl(client), boot_scenario="SC-01")) as api:
+        assert api.get("/health").status_code == 200  # startup does not wait for the case
+        case = _wait_until(lambda: next((c for c in api.get("/cases").json()
+                                         if c["status"] == "AWAITING_APPROVAL"), None))
+        assert case["case_id"] == "4500000091-10"
+
+
+def test_bad_boot_scenario_does_not_stop_startup(client):
+    with TestClient(create_api(build_service(client), demo=DemoControl(client), boot_scenario="SC-99")) as api:
+        assert api.get("/health").json()["status"] == "ok"
+        time.sleep(0.3)
+        assert api.get("/cases").json() == []

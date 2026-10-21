@@ -11,6 +11,7 @@
   SYNAPSE_RECORDINGS_DIR   directory of *.jsonl recordings for replay (default ./recordings)
   SYNAPSE_CORS_ORIGINS     comma-separated origins allowed to call the API (e.g. the Amplify URL)
   SYNAPSE_UI_DIR           built console to serve at /console (default ./ui/dist, if present)
+  SYNAPSE_DEMO_BOOT_SCENARIO  demo mode: stage this scenario (e.g. SC-01) at every startup
 """
 import os
 from datetime import date
@@ -30,7 +31,9 @@ from synapse.sap.rpt import delay_predictor_from_env
 from .app import DemoControl, create_api
 
 
-def build():
+def build_service() -> tuple[CaseService, DemoControl | None]:
+    """The case service and (in demo mode) the mock's control, wired from the environment.
+    Shared by this API process and the AgentCore Runtime entry point (synapse.agentcore)."""
     load_env()
     settings = Settings()
     erp_url = os.environ.get("SYNAPSE_ERP_URL")
@@ -56,10 +59,16 @@ def build():
         delay_predictor=delay_predictor_from_env(),
         planner_model=(lambda: models.reasoning_model(settings)) if llm else None,
         triage_model=(lambda: models.triage_model(settings)) if llm else None)
+    return service, demo
+
+
+def build():
+    service, demo = build_service()
     return create_api(service, demo=demo, api_key=os.environ.get("SYNAPSE_API_KEY"),
                       recordings_dir=os.environ.get("SYNAPSE_RECORDINGS_DIR"),
                       cors_origins=[o for o in os.environ.get("SYNAPSE_CORS_ORIGINS", "").split(",") if o],
-                      ui_dir=os.environ.get("SYNAPSE_UI_DIR", "ui/dist"))
+                      ui_dir=os.environ.get("SYNAPSE_UI_DIR", "ui/dist"),
+                      boot_scenario=os.environ.get("SYNAPSE_DEMO_BOOT_SCENARIO"))
 
 
 app = build()

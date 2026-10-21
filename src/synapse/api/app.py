@@ -19,6 +19,7 @@ SYNAPSE_API_KEY is set, every route except /health requires the `x-api-key` head
 import asyncio
 import base64
 import json
+import logging
 import re
 import secrets
 import threading
@@ -46,6 +47,7 @@ POLL_SECONDS = 0.2
 HEARTBEAT_SECONDS = 15.0
 MAX_STREAM_SECONDS = 30 * 60
 _RECORDING_NAME = re.compile(r"^[\w.-]+$")
+log = logging.getLogger("uvicorn.error")
 CHALLENGE = {"WWW-Authenticate": 'Basic realm="SynapseSupply"'}
 
 
@@ -96,13 +98,30 @@ def sse(event: TraceEvent) -> str:
 
 def create_api(service: CaseService, *, demo: DemoControl | None = None, api_key: str | None = None,
                recordings_dir: str | Path | None = None, cors_origins: list[str] | None = None,
-               ui_dir: str | Path | None = None,
+               ui_dir: str | Path | None = None, boot_scenario: str | None = None,
                sleep: Callable[[float], object] = asyncio.sleep) -> FastAPI:
+    """boot_scenario: in demo mode, stage this scenario (e.g. "SC-01") at startup, so a restart or
+    redeploy never leaves the console and Joule without a case to show."""
     lock = threading.Lock()                       # one case operation at a time (FIFO semantics)
     worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix="case-worker")
 
+    def stage_boot_scenario() -> None:
+        try:
+            with lock:
+                demo.reset()
+                service.clear()
+                scenario = demo.apply(boot_scenario)
+            msg = scenario_message(scenario)
+            queued.add(msg.case_id)
+            record = run(msg)
+            log.info("boot scenario %s staged: case %s %s", boot_scenario, record.case_id, record.status.value)
+        except Exception as e:  # noqa: BLE001 — startup must never fail because of demo staging
+            log.warning("boot scenario %s not staged: %s", boot_scenario, e)
+
     @asynccontextmanager
     async def lifespan(_: FastAPI):
+        if boot_scenario and demo is not None:
+            worker.submit(stage_boot_scenario)
         yield
         worker.shutdown(wait=False, cancel_futures=True)
 
