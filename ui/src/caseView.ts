@@ -91,6 +91,14 @@ export function deriveView(events: TraceEvent[]): CaseView {
   return view;
 }
 
+/** The case the console opens on by itself: one waiting for approval first (the newest), else the
+ * newest case. None when there are no cases. */
+export function pickInitialCase(cases: { case_id: string; status: string; created_at: string }[]): string | null {
+  if (cases.length === 0) return null;
+  const newestFirst = [...cases].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+  return (newestFirst.find((c) => c.status === "AWAITING_APPROVAL") ?? newestFirst[0]).case_id;
+}
+
 /** Seconds from case start to the policy decision (or completion). */
 export function timeToDecision(view: CaseView): number | null {
   if (!view.startedAt || !view.decidedAt) return null;

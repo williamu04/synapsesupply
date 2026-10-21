@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, streamEvents } from "./api";
-import { deriveView, mergeEvent, timeToDecision } from "./caseView";
+import { deriveView, mergeEvent, pickInitialCase, timeToDecision } from "./caseView";
 import { DecisionCard } from "./components/DecisionCard";
 import { OptionsTable } from "./components/OptionsTable";
 import { ProjectionChart } from "./components/ProjectionChart";
@@ -47,6 +47,7 @@ export default function App() {
   const [cases, setCases] = useState<CaseRecord[]>([]);
   const [recordings, setRecordings] = useState<string[]>([]);
   const [selection, setSelection] = useState<Selection>(initialSelection);
+  const autoOpened = useRef(selection !== null);  // a deep link counts as the user's choice
   const [events, setEvents] = useState<TraceEvent[]>([]);
   const [record, setRecord] = useState<CaseRecord | null>(null);
   const [streaming, setStreaming] = useState(false);
@@ -55,7 +56,18 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
 
   const refreshCases = useCallback(() => {
-    api.cases().then(setCases).catch(() => undefined);
+    api.cases().then((list) => {
+      setCases(list);
+      // Open on the case that matters (waiting for approval, else the newest) the first time
+      // cases are seen, so the console never greets the jury with an empty page.
+      if (!autoOpened.current) {
+        const id = pickInitialCase(list);
+        if (id) {
+          autoOpened.current = true;
+          setSelection({ mode: "live", caseId: id });
+        }
+      }
+    }).catch(() => undefined);
   }, []);
 
   useEffect(() => {

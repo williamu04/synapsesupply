@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveView, mergeEvent, timeToDecision } from "./caseView";
+import { deriveView, mergeEvent, pickInitialCase, timeToDecision } from "./caseView";
 import type { TraceEvent, TraceKind } from "./types";
 
 let seq = 0;
@@ -74,5 +74,23 @@ describe("deriveView", () => {
     const v = deriveView([]);
     expect(v.policy).toBeNull();
     expect(v.startedAt).toBeNull();
+  });
+});
+
+describe("pickInitialCase", () => {
+  const c = (case_id: string, status: string, created_at: string) => ({ case_id, status, created_at });
+  it("prefers the newest case waiting for approval", () => {
+    expect(pickInitialCase([
+      c("A", "EXECUTED", "2026-10-31T09:05:00Z"),
+      c("B", "AWAITING_APPROVAL", "2026-10-31T09:00:00Z"),
+      c("C", "AWAITING_APPROVAL", "2026-10-31T09:01:00Z"),
+    ])).toBe("C");
+  });
+  it("falls back to the newest case", () => {
+    expect(pickInitialCase([c("A", "EXECUTED", "2026-10-31T09:00:00Z"), c("B", "BLOCKED", "2026-10-31T09:02:00Z")]))
+      .toBe("B");
+  });
+  it("returns null without cases", () => {
+    expect(pickInitialCase([])).toBeNull();
   });
 });
