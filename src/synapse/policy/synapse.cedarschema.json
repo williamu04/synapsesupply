@@ -1,0 +1,36 @@
+{
+  "Synapse": {
+    "entityTypes": {
+      "Agent": {},
+      "Approver": {},
+      "EntitySet": {}
+    },
+    "actions": {
+      "sap:read": {
+        "appliesTo": {"principalTypes": ["Agent", "Approver"], "resourceTypes": ["EntitySet"], "context": {"type": "Record", "attributes": {}}}
+      },
+      "sap:delete": {
+        "appliesTo": {"principalTypes": ["Agent", "Approver"], "resourceTypes": ["EntitySet"], "context": {"type": "Record", "attributes": {}}}
+      },
+      "sap:reschedule_po_line": {
+        "appliesTo": {"principalTypes": ["Agent", "Approver"], "resourceTypes": ["EntitySet"], "context": {"type": "WriteContext"}}
+      },
+      "sap:create_purchase_order": {
+        "appliesTo": {"principalTypes": ["Agent", "Approver"], "resourceTypes": ["EntitySet"], "context": {"type": "WriteContext"}}
+      },
+      "sap:create_stock_transfer": {
+        "appliesTo": {"principalTypes": ["Agent", "Approver"], "resourceTypes": ["EntitySet"], "context": {"type": "WriteContext"}}
+      }
+    },
+    "commonTypes": {
+      "WriteContext": {
+        "type": "Record",
+        "attributes": {
+          "confidence_bp": {"type": "Long"},
+          "impact_usd_cents": {"type": "Long"},
+          "compliance": {"type": "String"}
+        }
+      }
+    }
+  }
+}

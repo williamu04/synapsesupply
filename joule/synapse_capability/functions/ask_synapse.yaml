@@ -1,0 +1,25 @@
+action_groups:
+  - actions:
+      - type: status-update
+        message: SynapseSupply is checking SAP S/4HANA...
+      - type: agent-request
+        system_alias: SYNAPSE_AGENT
+        agent_type: remote
+        result_variable: "apiResponse"
+      - type: message
+        message:
+          type: text
+          markdown: true
+          content: "<? apiResponse.body.artifacts[0].parts[0].text ?>"
+  - condition: apiResponse.body.artifacts[0].parts.size() > 1 && apiResponse.body.artifacts[0].parts[1].data.awaiting_approval == true
+    actions:
+      - type: message
+        message:
+          type: quickReplies
+          content:
+            title: "Decide case <? apiResponse.body.artifacts[0].parts[1].data.case_id ?>"
+            buttons:
+              - title: Approve
+                value: "approve <? apiResponse.body.artifacts[0].parts[1].data.case_id ?>"
+              - title: Show status
+                value: "status of <? apiResponse.body.artifacts[0].parts[1].data.case_id ?>"

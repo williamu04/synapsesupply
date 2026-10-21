@@ -1,0 +1,16 @@
+description: >-
+  Lets a supply planner review and decide wood-fibre supply actions that the SynapseSupply agent
+  escalated: listing what is waiting for approval, showing the status of a supply case by its case
+  number (for example 4500000091-10), and approving or rejecting a proposed stock transfer or
+  purchase order with a reason.
+target:
+  name: ask_synapse
+  type: function
+visibility_condition:
+  objects:
+    - type: ias_attributes
+      attributes:
+        - attribute: groups
+          match: "ANY"
+          values:
+            - 08ebd150-1afb-4e19-9ed9-37a4c5bb788f   # IAS group of team yang-penting-daftar-dulu (keybroker /group/<team>)

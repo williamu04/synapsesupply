@@ -1,0 +1,42 @@
+# Cloud Foundry (SAP BTP, the hackathon's ap10 landscape). Run scripts/cf_prepare.sh first, then:
+#   cf target -o "SEAIO_aws-sap-hackathon-si4ykj9d" -s "hackathon-<team>"
+#   cf push --var team=<team>
+# Secrets go in with `cf set-env`, never in this file:
+#   SYNAPSE_API_KEY (both apps), AICORE_CLIENT_ID / AICORE_CLIENT_SECRET (api; AI Core model fallback),
+#   AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_SESSION_TOKEN (api; Bedrock, optional)
+# Both apps keep state in memory: keep instances: 1 and --workers 1.
+applications:
+  - name: synapsesupply-api-((team))
+    memory: 1024M
+    disk_quota: 2048M
+    instances: 1
+    buildpacks:
+      - https://github.com/cloudfoundry/python-buildpack/releases/download/v1.8.43/python-buildpack-cflinuxfs4-v1.8.43.zip
+    health-check-type: http
+    health-check-http-endpoint: /health
+    timeout: 180
+    command: python -m uvicorn synapse.api.main:app --host 0.0.0.0 --port $PORT --workers 1
+    env:
+      BP_PYTHON_VERSION: "3.13.11"
+      SYNAPSE_PLANNER: auto
+      SYNAPSE_MODEL_PROVIDERS: aicore   # Bedrock: switch to "bedrock,aicore" once the AWS account is verified
+      SYNAPSE_UI_DIR: ui/dist
+      SYNAPSE_RECORDINGS_DIR: recordings
+      LITELLM_PROVIDER: sap
+      AICORE_RESOURCE_GROUP: default
+      AICORE_AUTH_URL: https://aws-sap-hackathon-si4ykj9d.authentication.ap10.hana.ondemand.com/oauth/token
+      AICORE_BASE_URL: https://api.ai.prod.ap-southeast-2.aws.ml.hana.ondemand.com
+
+  - name: synapsesupply-joule-((team))
+    memory: 512M
+    disk_quota: 2048M
+    instances: 1
+    buildpacks:
+      - https://github.com/cloudfoundry/python-buildpack/releases/download/v1.8.43/python-buildpack-cflinuxfs4-v1.8.43.zip
+    health-check-type: http
+    health-check-http-endpoint: /health
+    timeout: 180
+    command: python -m uvicorn synapse.joule.server:app --host 0.0.0.0 --port $PORT --workers 1
+    env:
+      BP_PYTHON_VERSION: "3.13.11"
+      SYNAPSE_API_URL: https://synapsesupply-api-((team)).cfapps.ap10.hana.ondemand.com

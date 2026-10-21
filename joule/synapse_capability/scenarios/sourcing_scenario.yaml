@@ -1,0 +1,16 @@
+description: >-
+  Handles wood-fibre sourcing and supply requests for pulp and paper mills: ordering or buying
+  acacia wood chips or eucalyptus pulpwood logs for a mill such as Mill Riau-1 or Mill Jambi-2,
+  sourcing from a named supplier, rebalancing or transferring stock between mills, and checking a
+  supplier's EUDR deforestation or certificate compliance before purchasing.
+target:
+  name: ask_synapse
+  type: function
+visibility_condition:
+  objects:
+    - type: ias_attributes
+      attributes:
+        - attribute: groups
+          match: "ANY"
+          values:
+            - 08ebd150-1afb-4e19-9ed9-37a4c5bb788f   # IAS group of team yang-penting-daftar-dulu (keybroker /group/<team>)

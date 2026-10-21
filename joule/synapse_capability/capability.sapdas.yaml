@@ -1,0 +1,15 @@
+schema_version: 3.28.0
+
+metadata:
+  namespace: joule.ext
+  name: synapsesupply_capability
+  version: 1.0.0
+  display_name: SynapseSupply
+  description: >-
+    Wood-fibre supply exception agent for pulp mills. Sources chips and logs compliantly (EUDR
+    gate), rebalances stock between mills, and asks planners to approve actions it may not take alone.
+
+# The BTP destination name must be unique per team (YPDD = yang-penting-daftar-dulu).
+system_aliases:
+  SYNAPSE_AGENT:
+    destination: SYNAPSE_AGENT_YPDD
