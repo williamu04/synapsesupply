@@ -206,3 +206,27 @@ def test_bad_boot_scenario_does_not_stop_startup(client):
         assert api.get("/health").json()["status"] == "ok"
         time.sleep(0.3)
         assert api.get("/cases").json() == []
+
+
+def test_shared_s4_is_served_behind_the_key(client):
+    api = make_api(client, api_key="k", s4_app=client.app)
+    path = "/s4/sap/opu/odata/sap/API_INBOUND_DELIVERY_SRV;v=0002/A_InbDeliveryHeader('180000001')"
+    assert api.get(path).status_code == 401
+    assert api.get("/s4/health").status_code == 401
+    client.post("/admin/scenarios/SC-01/apply")              # the API's own ERP changes ...
+    remote = api.get(path, auth=("agentcore", "k"))           # ... and a remote client sees it
+    assert remote.status_code == 200
+    assert remote.json()["d"]["LastChangeDate"] == client.get(path.removeprefix("/s4")).json()["d"]["LastChangeDate"]
+    assert api.get("/s4/health", headers={"x-api-key": "k"}).status_code == 200
+
+
+def test_s4_not_exposed_by_default(client):
+    assert make_api(client).get("/s4/health").status_code == 404
+
+
+def test_stage_changes_the_erp_without_starting_a_case(client):
+    api = make_api(client)
+    r = api.post("/demo/scenarios/SC-01/stage")
+    assert r.status_code == 200 and r.json()["case_id"] == "4500000091-10"
+    assert api.get("/cases").json() == []                       # left to the poller
+    assert "SC-01" in client.get("/admin/scenarios").json()["applied"]

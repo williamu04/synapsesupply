@@ -50,7 +50,8 @@ def build_service() -> tuple[CaseService, DemoControl | None]:
     if not erp_url:
         demo = DemoControl(mock)
     elif os.environ.get("SYNAPSE_DEMO") == "1":
-        demo = DemoControl(http_client(erp_url))
+        demo = DemoControl(http_client(erp_url, user=os.environ.get("SYNAPSE_ERP_USER"),
+                                       password=os.environ.get("SYNAPSE_ERP_PASSWORD")))
 
     llm = os.environ.get("SYNAPSE_PLANNER", "auto") == "auto"
     repo, trace_store, archive = stores_from_env()
@@ -69,7 +70,15 @@ def build():
                       recordings_dir=os.environ.get("SYNAPSE_RECORDINGS_DIR"),
                       cors_origins=[o for o in os.environ.get("SYNAPSE_CORS_ORIGINS", "").split(",") if o],
                       ui_dir=os.environ.get("SYNAPSE_UI_DIR", "ui/dist"),
-                      boot_scenario=os.environ.get("SYNAPSE_DEMO_BOOT_SCENARIO"))
+                      boot_scenario=os.environ.get("SYNAPSE_DEMO_BOOT_SCENARIO"),
+                      s4_app=_exposed_s4(demo))
+
+
+def _exposed_s4(demo: DemoControl | None):
+    """The in-process mock S/4 as an ASGI app, when SYNAPSE_EXPOSE_S4=1 (Cloud Foundry only)."""
+    if os.environ.get("SYNAPSE_EXPOSE_S4") != "1" or demo is None:
+        return None
+    return getattr(demo.client, "app", None)  # the TestClient wrapping the mock
 
 
 app = build()

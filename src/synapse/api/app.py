@@ -32,7 +32,7 @@ from pathlib import Path
 import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -99,9 +99,11 @@ def sse(event: TraceEvent) -> str:
 def create_api(service: CaseService, *, demo: DemoControl | None = None, api_key: str | None = None,
                recordings_dir: str | Path | None = None, cors_origins: list[str] | None = None,
                ui_dir: str | Path | None = None, boot_scenario: str | None = None,
-               sleep: Callable[[float], object] = asyncio.sleep) -> FastAPI:
+               s4_app=None, sleep: Callable[[float], object] = asyncio.sleep) -> FastAPI:
     """boot_scenario: in demo mode, stage this scenario (e.g. "SC-01") at startup, so a restart or
-    redeploy never leaves the console and Joule without a case to show."""
+    redeploy never leaves the console and Joule without a case to show.
+    s4_app: the in-process mock S/4, served at /s4 behind the API key, so the AgentCore runtime and the
+    poller Lambda work against the same ERP as this API (one S/4 for the whole system)."""
     lock = threading.Lock()                       # one case operation at a time (FIFO semantics)
     worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix="case-worker")
 
@@ -298,6 +300,28 @@ def create_api(service: CaseService, *, demo: DemoControl | None = None, api_key
             service.clear()
             scenario = control.apply(scenario_id)
         return submit(scenario_message(scenario), wait, response)
+
+    @app.post("/demo/scenarios/{scenario_id}/stage", dependencies=guarded)
+    def demo_stage(scenario_id: str):
+        """Reset, then change the ERP only: no case is started here. The ERP poller (Lambda) finds the
+        late delivery within a minute and the agent on AgentCore handles it, as in production."""
+        control = need_demo()
+        with lock:
+            control.reset()
+            service.clear()
+            scenario = control.apply(scenario_id)
+        return {"status": "staged", "scenario_id": scenario_id, "case_id": scenario["case_id"],
+                "note": "the ERP poller picks this up within about a minute"}
+
+    if s4_app is not None:
+        app.mount("/s4", s4_app, name="s4")
+
+        @app.middleware("http")
+        async def protect_s4(request: Request, call_next):
+            if (request.url.path == "/s4" or request.url.path.startswith("/s4/")) and not authorized(
+                    request.headers.get("x-api-key"), None, request.headers.get("authorization")):
+                return JSONResponse({"detail": "Missing or invalid x-api-key"}, status_code=401, headers=CHALLENGE)
+            return await call_next(request)
 
     if ui_dir and Path(ui_dir, "index.html").is_file():
         # The built console (ui/dist), so the demo runs from a single origin: http://host:8080/console/

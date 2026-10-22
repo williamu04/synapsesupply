@@ -13,7 +13,7 @@ aws bedrock-agentcore-control update-agent-runtime --region "$REGION" --agent-ru
   --agent-runtime-artifact "{\"containerConfiguration\":{\"containerUri\":\"$IMAGE\"}}" \
   --network-configuration networkMode=PUBLIC \
   --role-arn "arn:aws:iam::$ACCOUNT:role/SynapseSupplyAgentCoreRuntime" \
-  --environment-variables '{"AWS_REGION":"ap-southeast-2","SYNAPSE_SECRETS_ID":"synapsesupply/runtime","SYNAPSE_MODEL_PROVIDERS":"bedrock,aicore","SYNAPSE_CASES_TABLE":"SynapseSupplyCases","SYNAPSE_TRACE_TABLE":"SynapseSupplyTrace","SYNAPSE_AUDIT_BUCKET":"synapsesupply-audit-398074591173-ap-southeast-2"}' \
+  --environment-variables '{"AWS_REGION":"ap-southeast-2","SYNAPSE_SECRETS_ID":"synapsesupply/runtime","SYNAPSE_MODEL_PROVIDERS":"bedrock,aicore","SYNAPSE_CASES_TABLE":"SynapseSupplyCases","SYNAPSE_TRACE_TABLE":"SynapseSupplyTrace","SYNAPSE_AUDIT_BUCKET":"synapsesupply-audit-398074591173-ap-southeast-2","SYNAPSE_ERP_URL":"https://synapsesupply-api-yang-penting-daftar-dulu.cfapps.ap10.hana.ondemand.com/s4","SYNAPSE_FALLBACK_MOCK":"1","SYNAPSE_DEMO":"1"}' \
   --query '[agentRuntimeVersion,status]' --output text
 
 for _ in $(seq 1 60); do

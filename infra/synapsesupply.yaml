@@ -2,6 +2,7 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
   SynapseSupply on AWS (ap-southeast-2). Phase 1: shared case history (DynamoDB) and the audit
   archive (S3), plus access for the existing AgentCore execution role and the Cloud Foundry user.
+  Phase 2: ERP poller (EventBridge + Lambda) -> SQS FIFO -> dispatcher Lambda -> AgentCore Runtime.
   Deploy: scripts/aws_deploy.sh
 
 Parameters:
@@ -13,6 +14,22 @@ Parameters:
     Type: String
     Default: synapsesupply-cf-bedrock
     Description: Existing IAM user whose key the Cloud Foundry API app uses
+  S4Url:
+    Type: String
+    Default: https://synapsesupply-api-yang-penting-daftar-dulu.cfapps.ap10.hana.ondemand.com/s4
+    Description: OData base of the S/4 the poller reads (the mock S/4 shared by the Cloud Foundry API)
+  SecretId:
+    Type: String
+    Default: synapsesupply/runtime
+    Description: Secrets Manager secret with SYNAPSE_ERP_USER / SYNAPSE_ERP_PASSWORD
+  AgentRuntimeArn:
+    Type: String
+    Default: arn:aws:bedrock-agentcore:ap-southeast-2:398074591173:runtime/synapsesupply-vFgJ0n85b6
+  PollerState:
+    Type: String
+    Default: ENABLED
+    AllowedValues: [ENABLED, DISABLED]
+    Description: Turn the one-minute ERP poll on or off
 
 Resources:
   CasesTable:
@@ -126,7 +143,141 @@ Resources:
             Action: s3:PutObject
             Resource: !Sub "${AuditBucket.Arn}/cases/*"
 
+  # --- Phase 2: ERP poller -> SQS FIFO -> dispatcher -> AgentCore Runtime -----------------------
+
+  CaseDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: synapsesupply-cases-dlq.fifo
+      FifoQueue: true
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+
+  CaseQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: synapsesupply-cases.fifo
+      FifoQueue: true
+      VisibilityTimeout: 900           # > 2x the dispatcher timeout
+      SqsManagedSseEnabled: true
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt CaseDeadLetterQueue.Arn
+        maxReceiveCount: 3
+
+  PollerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - { Effect: Allow, Principal: { Service: lambda.amazonaws.com }, Action: sts:AssumeRole }
+      ManagedPolicyArns: [arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole]
+      Policies:
+        - PolicyName: poller
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${SecretId}-*
+              - { Effect: Allow, Action: sqs:SendMessage, Resource: !GetAtt CaseQueue.Arn }
+              - { Effect: Allow, Action: dynamodb:GetItem, Resource: !GetAtt CasesTable.Arn }
+
+  PollerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: synapsesupply-erp-poller
+      Description: Finds late inbound deliveries in S/4 and queues ASN_DELAY cases
+      Runtime: python3.13
+      Architectures: [arm64]
+      Handler: handler.handler
+      Code: ../lambdas/poller
+      Timeout: 60
+      MemorySize: 256
+      Role: !GetAtt PollerRole.Arn
+      Environment:
+        Variables:
+          S4_URL: !Ref S4Url
+          SECRET_ID: !Ref SecretId
+          QUEUE_URL: !Ref CaseQueue
+          CASES_TABLE: !Ref CasesTable
+
+  PollerLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/synapsesupply-erp-poller
+      RetentionInDays: 14
+
+  PollerSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: synapsesupply-erp-poll
+      Description: Poll S/4 for late deliveries every minute
+      ScheduleExpression: rate(1 minute)
+      State: !Ref PollerState
+      Targets:
+        - { Id: poller, Arn: !GetAtt PollerFunction.Arn }
+
+  PollerSchedulePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PollerFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt PollerSchedule.Arn
+
+  DispatcherRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - { Effect: Allow, Principal: { Service: lambda.amazonaws.com }, Action: sts:AssumeRole }
+      ManagedPolicyArns: [arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole]
+      Policies:
+        - PolicyName: dispatcher
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [sqs:ReceiveMessage, sqs:DeleteMessage, sqs:GetQueueAttributes, sqs:ChangeMessageVisibility]
+                Resource: !GetAtt CaseQueue.Arn
+              - Effect: Allow
+                Action: bedrock-agentcore:InvokeAgentRuntime
+                Resource: [!Ref AgentRuntimeArn, !Sub "${AgentRuntimeArn}/*"]
+
+  DispatcherFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: synapsesupply-case-dispatcher
+      Description: Hands queued cases to the agent on AgentCore Runtime
+      Runtime: python3.13
+      Architectures: [arm64]
+      Handler: handler.handler
+      Code: ../build/lambdas/dispatcher    # handler + a current boto3 (scripts/aws_deploy.sh)
+      Timeout: 300
+      MemorySize: 256
+      Role: !GetAtt DispatcherRole.Arn
+      Environment:
+        Variables:
+          AGENT_RUNTIME_ARN: !Ref AgentRuntimeArn
+
+  DispatcherLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/synapsesupply-case-dispatcher
+      RetentionInDays: 14
+
+  DispatcherQueueTrigger:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt CaseQueue.Arn
+      FunctionName: !Ref DispatcherFunction
+      BatchSize: 1
+
 Outputs:
   CasesTableName: { Value: !Ref CasesTable }
   TraceTableName: { Value: !Ref TraceTable }
   AuditBucketName: { Value: !Ref AuditBucket }
+  CaseQueueUrl: { Value: !Ref CaseQueue }
+  DeadLetterQueueUrl: { Value: !Ref CaseDeadLetterQueue }

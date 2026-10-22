@@ -27,6 +27,8 @@ applications:
       SYNAPSE_CASES_TABLE: SynapseSupplyCases
       SYNAPSE_TRACE_TABLE: SynapseSupplyTrace
       SYNAPSE_AUDIT_BUCKET: synapsesupply-audit-398074591173-ap-southeast-2
+      # Serve the mock S/4 at /s4 (API key), the one ERP for this app, AgentCore and the poller.
+      SYNAPSE_EXPOSE_S4: "1"
       SYNAPSE_UI_DIR: ui/dist
       SYNAPSE_RECORDINGS_DIR: recordings
       SYNAPSE_DEMO_BOOT_SCENARIO: SC-01   # a restart never leaves the demo without a case

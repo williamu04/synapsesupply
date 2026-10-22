@@ -10,3 +10,6 @@ docs/
 ui/node_modules/
 ui/src/
 *.tsbuildinfo
+build/
+lambdas/
+infra/

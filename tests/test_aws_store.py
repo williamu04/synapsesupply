@@ -7,7 +7,12 @@ from moto import mock_aws
 
 from synapse.agent.service import CaseService
 from synapse.aws_store import (
-    DynamoCaseRepository, DynamoTraceStore, FallbackCaseRepository, FallbackTraceStore, S3Archive, stores_from_env,
+    DynamoCaseRepository,
+    DynamoTraceStore,
+    FallbackCaseRepository,
+    FallbackTraceStore,
+    S3Archive,
+    stores_from_env,
 )
 from synapse.contracts import CaseStatus, TraceKind
 from synapse.erp import ErpClient
@@ -37,7 +42,10 @@ def aws(monkeypatch):
         yield ddb, s3
 
 
-def _service(client, policy=PolicyEngine()) -> CaseService:
+_POLICY = PolicyEngine()
+
+
+def _service(client, policy=_POLICY) -> CaseService:
     """A separate process' view: its own memory fallback, the shared tables and bucket."""
     return CaseService(erp_factory=lambda cb: ErpClient(client, on_failover=cb), policy=policy,
                        repo=FallbackCaseRepository(DynamoCaseRepository("Cases")),
