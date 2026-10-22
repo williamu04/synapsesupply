@@ -64,8 +64,14 @@ SC-01 to show the contrast: a small, safe fix runs alone, a large one goes to a 
 - **"Where is AWS?"** The agent is built on the AWS Strands Agents SDK and **runs on Amazon Bedrock
   AgentCore Runtime** (Sydney), with its credentials in AWS Secrets Manager; Cedar is the policy
   language of AgentCore Policy. Say plainly that our account's Bedrock token quota is still 0, so
-  Claude is served via SAP AI Core for now; failover is automatic (`ModelRouter`). Optional proof:
-  `aws bedrock-agentcore invoke-agent-runtime` with `{"scenario":"SC-01"}` (`agentcore.md`).
+  Claude is served via SAP AI Core for now; failover is automatic (`ModelRouter`). The production
+  path runs on AWS too: an EventBridge-scheduled **Lambda** polls S/4 every minute, late deliveries
+  go to an **SQS FIFO** queue, a second Lambda hands them to AgentCore, and cases and traces live in
+  **DynamoDB** (shared with the console and Joule), with an audit file per case in **S3**.
+- **Optional live proof of the pipeline (about 90 s):** `curl -X POST -H "x-api-key: …"
+  …/demo/scenarios/SC-01/stage` changes only the ERP. Keep talking; within about a minute the case
+  appears in the console with source `ODATA_POLLER`, handled by AgentCore. Use it only with time to
+  spare: the normal flow (console button) is instant.
 - **"Who approved in Joule?"** Shown as `joule:unknown-user`: the destination uses Basic auth to
   protect the agent, and access is limited to the team's IAS group. Verified user identity
   (XSUAA/principal propagation) is future work.

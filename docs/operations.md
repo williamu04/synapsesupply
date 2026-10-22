@@ -56,6 +56,8 @@ waiting for approval within about 20 seconds.
 | Joule chat logic (`src/synapse/joule/`) | push the Joule agent app |
 | Joule YAML (`joule/`) | `cd joule && joule lint . && joule deploy --compile .` |
 | a secret | `cf set-env <app> NAME value`, then `cf restart <app>` |
+| AWS resources (`infra/`, `lambdas/`) | `./scripts/aws_deploy.sh` (user; guarded) |
+| agent code on AgentCore | build + push the image, then `./scripts/agentcore_update.sh` (user; guarded) |
 
 ### Health check
 
@@ -84,6 +86,9 @@ cf logs synapsesupply-joule-yang-penting-daftar-dulu --recent | grep "A2A messag
 | `SYNAPSE_AICORE_MODEL_ID` | `sap/anthropic--claude-4.6-sonnet` | Model on SAP AI Core, via LiteLLM |
 | `AWS_REGION` | `ap-southeast-2` | The account's region; the organization denies AgentCore, ECR, DynamoDB etc. elsewhere. Don't change it |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | none | **Secret.** Cloud Foundry only: IAM user `synapsesupply-cf-bedrock` (Bedrock invoke only), set by `scripts/cf_bedrock_credentials.sh`. AgentCore uses its IAM role instead |
+| `SYNAPSE_CASES_TABLE`, `SYNAPSE_TRACE_TABLE` | none: memory | DynamoDB tables shared by the API and AgentCore (`SynapseSupplyCases`, `SynapseSupplyTrace`); memory fallback |
+| `SYNAPSE_AUDIT_BUCKET` | none | S3 bucket for one audit file per final case |
+| `SYNAPSE_EXPOSE_S4` | off | `1` = serve the in-process mock S/4 at `/s4` behind the API key (BTP app only) |
 | `SYNAPSE_SECRETS_ID` | none | Secrets Manager secret (JSON of variables) loaded at startup; AgentCore uses `synapsesupply/runtime` |
 | `AICORE_CLIENT_ID`, `AICORE_CLIENT_SECRET` | none | **Secret.** AI Core service key (keybroker `/ai-core/<team>-key`); enables the AI Core model and live RPT-1 |
 | `AICORE_AUTH_URL`, `AICORE_BASE_URL`, `AICORE_RESOURCE_GROUP` | (manifest) | AI Core endpoints, resource group `default` |

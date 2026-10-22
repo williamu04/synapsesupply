@@ -33,11 +33,11 @@ When a wood-fiber delivery slips, the agent works through these steps:
 | HTTP API: cases, approvals, SSE live trace, recordings replay, demo control (`src/synapse/api/`, `docs/api.md`) | M2/M3 consume | done, tested |
 | Console UI: live trace, stock projection chart, options + compliance, decision card with approve/reject, demo buttons, replay (`ui/`) | M3 | done, unit-tested, screenshot-checked light/dark/phone |
 | AgentCore Runtime packaging: entry point + ARM64 image (`src/synapse/agentcore.py`, `Dockerfile`, `docs/agentcore.md`) | M1 | **deployed** to AgentCore Runtime in ap-southeast-2; SC-01 verified |
-| AgentCore Gateway policy wiring, DynamoDB persistence | M1 | not built (AWS access available in ap-southeast-2) |
+| DynamoDB cases + trace, S3 audit archive (`src/synapse/aws_store.py`) | M1 | **running**; AgentCore Gateway + Policy dropped for Demo Day |
 | Joule: A2A agent + capability YAML (request, pending approvals, approve/reject in chat) (`src/synapse/joule/`, `joule/`, `docs/joule.md`) | M2 | **live**: assistant `synapsesupply_assistant` + destination `SYNAPSE_AGENT_YPDD`; approve-in-Joule tested end to end |
 | Cloud Foundry deployment of API + console + Joule agent (`manifest.yml`, `scripts/cf_prepare.sh`) | M2/M3 | **deployed** to the team space; both apps protected by keys; SC-02 runs live in 18 s (URLs in `docs/joule.md`) |
 | SAP RPT-1 delivery-risk prediction per supplier option (`sap/rpt.py`, `domain/delays.py`), shown in console and used in confidence | M2 | done, verified live against the team's AI Core |
-| ERP poller → SQS FIFO → agent invoker → DynamoDB (AWS) | M3 | not built: blocked on AWS access; scenarios are triggered from the console instead |
+| ERP poller Lambda → SQS FIFO → dispatcher Lambda → AgentCore (`lambdas/`, `infra/`) | M3 | **running**: ERP change to escalated case in 84 s |
 
 ## Quick start
 

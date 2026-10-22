@@ -88,6 +88,6 @@ sequenceDiagram
 |---|---|
 | Bedrock as the primary model | Code ready (`ModelRouter`); account token quota is 0 (increase requested) |
 | AgentCore Gateway with AgentCore Policy | Cedar file ready. (AgentCore **Runtime is deployed** in ap-southeast-2, `docs/agentcore.md`) |
-| DynamoDB case store, SQS FIFO ingestion, OData poller | Interfaces ready (`CaseRepository`, `CaseMessage`); allowed in ap-southeast-2, not built; cases are in memory |
+| (done 2026-10-22) DynamoDB case store, S3 audit, SQS FIFO ingestion, OData poller Lambda | **Running** in ap-southeast-2 (`docs/pending.md` #4–5, `infra/synapsesupply.yaml`); cases are in memory |
 | Real S/4HANA | Mock uses real API names and wire format; no S/4 in the tenant |
 | Verified approver identity in Joule | Needs XSUAA / principal propagation |

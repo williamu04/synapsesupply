@@ -8,9 +8,10 @@ Everything not done yet, who it waits on, and the exact steps once it's unblocke
 | 1 | Bedrock as the primary model | AWS: quota increase for Claude Sonnet 4.6 (zero in every region) | fully prepared; switches by itself on approval |
 | 2 | AWS services (AgentCore, ECR, S3, Lambda, DynamoDB) | — | **solved:** allowed in `ap-southeast-2`, denied only in `us-west-2` |
 | 3 | Deploy to AgentCore Runtime (Sydney) | — | **done:** runtime `synapsesupply-vFgJ0n85b6` READY, SC-01 verified |
-| 4 | Durable case history (DynamoDB) | nothing (Sydney allows DynamoDB) | designed, interface ready |
-| 5 | Automatic ERP polling (poller → SQS FIFO → agent) | a real S/4 to poll | not built |
-| 6 | Push the repo to GitHub | team: create the remote | 5 local commits on `main` |
+| 4 | Shared case history (DynamoDB) + audit archive (S3) | — | **done** 2026-10-22: BTP app and AgentCore share cases and traces |
+| 5 | Automatic ERP polling (poller → SQS FIFO → agent) | — | **done** 2026-10-22: ERP change to escalated case in 84 s, live |
+| 5b | AgentCore Gateway + Policy (Cedar enforced outside the agent) | — | **dropped** for Demo Day (risk); presented as next step |
+| 6 | Push the repo to GitHub | team: create the remote | local commits on `main` |
 | 7 | Team rehearsal | team | open |
 | 8 | Start the demo from Joule (hidden "simulate SC-01" command) | team decision | proposed, about 1 hour |
 | 9 | Rotate all secrets | after Demo Day | open |
@@ -56,18 +57,25 @@ needs DynamoDB (#4) so both share one case store.
 After deploying, update deck slide 10 and `architecture.md`. AgentCore Gateway + Policy (mapping
 `synapse.cedar` to the gateway's tool names) comes after.
 
-## 4. Durable case history (DynamoDB)
+## 4–5. AWS pipeline: done
 
-Cases and traces live in memory. Restarts re-stage SC-01 automatically, so the demo is not affected.
-To build: a `DynamoCaseRepository` implementing `synapse.agent.cases.CaseRepository` (table `Cases`,
-partition key `case_id`), plus persisted trace events so the live stream survives restarts.
+Stack `synapsesupply` (`infra/synapsesupply.yaml`, deployed with `scripts/aws_deploy.sh`):
 
-## 5. Automatic ERP polling
+- **DynamoDB** `SynapseSupplyCases` and `SynapseSupplyTrace`: the BTP app and the AgentCore runtime
+  share cases and traces (memory fallback if DynamoDB is unreachable).
+- **S3** `synapsesupply-audit-398074591173-ap-southeast-2`: one versioned audit file per case.
+- **One S/4:** the BTP app serves its mock S/4 at `/s4` (API key); AgentCore and the poller use it.
+- **EventBridge → Lambda `synapsesupply-erp-poller`** (every minute) → **SQS FIFO**
+  `synapsesupply-cases.fifo` (+ dead-letter queue) → **Lambda `synapsesupply-case-dispatcher`** →
+  **AgentCore Runtime**.
 
-Today a disruption is triggered from the console (demo buttons). Planned: an OData poller reading
-`A_InbDeliveryHeader?$filter=LastChangeDate ge …` (`contracts.md`), turning delays into
-`CaseMessage`s on an SQS FIFO queue (`MessageGroupId = case_id`), consumed by the agent. On stage,
-say: "the ERP raises this automatically; we simulate it here."
+Verified live 2026-10-22: `POST /demo/scenarios/SC-01/stage` changed the ERP only; the poller queued
+`4500000091-10` within a minute, AgentCore escalated it in 28 s, and the case appeared in the console
+(84 s in total, dead-letter queue empty).
+
+**AgentCore Gateway + Policy was dropped** for Demo Day: Cedar already gates every write inside the
+agent, and moving the write tools behind a gateway was the riskiest change this close to the demo.
+It is the next step: the policies are already in AgentCore Policy's language (Cedar).
 
 ## 6. Push the repo to GitHub
 
