@@ -5,7 +5,7 @@ Everything not done yet, who it waits on, and the exact steps once it's unblocke
 
 | # | Item | Waits on | Status |
 |---|---|---|---|
-| 1 | Bedrock as the primary model | AWS: quota increase for Claude Sonnet 4.6 (zero in every region) | case opened (us-west-2); file it for ap-southeast-2 too |
+| 1 | Bedrock as the primary model | AWS: quota increase for Claude Sonnet 4.6 (zero in every region) | requests open in us-west-2 and ap-southeast-2 (the one AgentCore needs) |
 | 2 | AWS services (AgentCore, ECR, S3, Lambda, DynamoDB) | — | **solved:** allowed in `ap-southeast-2`, denied only in `us-west-2` |
 | 3 | Deploy to AgentCore Runtime (Sydney) | — | **done:** runtime `synapsesupply-vFgJ0n85b6` READY, SC-01 verified |
 | 4 | Durable case history (DynamoDB) | nothing (Sydney allows DynamoDB) | designed, interface ready |
