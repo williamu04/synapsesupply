@@ -1,7 +1,21 @@
 # Deploying the agent to Amazon Bedrock AgentCore Runtime
 
-**Status (2026-10-22): packaged and tested locally; not deployed.** Our AWS role is denied ECR and
-AgentCore (an organization SCP). Everything below can be run as soon as access is granted.
+**Status (2026-10-22): image in ECR, role and secret created; the runtime itself is not created yet.**
+The account's organization policy denies these services in `us-west-2` but **allows them in
+`ap-southeast-2` (Sydney)**, so everything runs there. Bedrock models have a zero token quota in both
+regions, so the runtime uses Claude on SAP AI Core until the quota arrives.
+
+Created in `ap-southeast-2` (2026-10-22):
+
+| Resource | Name |
+|---|---|
+| ECR repository (scan on push) | `synapsesupply-agent`, tag `latest` (ARM64) |
+| IAM execution role | `SynapseSupplyAgentCoreRuntime` (trust: `bedrock-agentcore.amazonaws.com`, this account only) |
+| Secrets Manager secret | `synapsesupply/runtime`: JSON with the `AICORE_*` variables and `LITELLM_PROVIDER` |
+
+The role's inline policy `runtime` allows only: pulling this repository, writing the runtime's
+CloudWatch logs, X-Ray/metrics, workload access tokens, reading `synapsesupply/runtime`, invoking
+Bedrock models, and the (future) `SynapseSupplyCases` DynamoDB table.
 
 ## What exists
 
@@ -26,26 +40,27 @@ Each reply is `{"case": CaseRecord, "trace": [...]}`, or `{"error", "code"}` wit
 `bad_request`, `not_found`, `conflict`, `not_available` or `failed`. Add `"include_trace": false` to
 leave out the trace.
 
-## Deploy (us-west-2)
+## Deploy (ap-southeast-2)
 
 ```bash
-ACCOUNT=398074591173 REGION=us-west-2 REPO=synapsesupply-agent
+ACCOUNT=398074591173 REGION=ap-southeast-2 REPO=synapsesupply-agent
 
 # 1. Image to ECR (ARM64)
 aws ecr create-repository --repository-name $REPO --region $REGION
 aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $ACCOUNT.dkr.ecr.$REGION.amazonaws.com
 docker buildx build --platform linux/arm64 -t $ACCOUNT.dkr.ecr.$REGION.amazonaws.com/$REPO:latest --push .
 
-# 2. Execution role (once): trusted by bedrock-agentcore.amazonaws.com, allowed to pull from ECR,
-#    write CloudWatch Logs and call bedrock:InvokeModel / InvokeModelWithResponseStream.
+# 2. Execution role and secret: done (see the table above). The secret is read at startup by
+#    synapse.env.load_secrets_manager when SYNAPSE_SECRETS_ID is set.
 
 # 3. Runtime
 aws bedrock-agentcore-control create-agent-runtime --region $REGION \
   --agent-runtime-name synapsesupply \
   --agent-runtime-artifact "containerConfiguration={containerUri=$ACCOUNT.dkr.ecr.$REGION.amazonaws.com/$REPO:latest}" \
   --network-configuration networkMode=PUBLIC \
-  --role-arn arn:aws:iam::$ACCOUNT:role/<execution-role> \
-  --environment-variables "SYNAPSE_MODEL_PROVIDERS=bedrock,aicore,SYNAPSE_REASONING_MODEL_ID=global.anthropic.claude-sonnet-4-6,SYNAPSE_TRIAGE_MODEL_ID=global.anthropic.claude-sonnet-4-6"
+  --role-arn arn:aws:iam::$ACCOUNT:role/SynapseSupplyAgentCoreRuntime \
+  --environment-variables '{"AWS_REGION":"ap-southeast-2","SYNAPSE_SECRETS_ID":"synapsesupply/runtime","SYNAPSE_MODEL_PROVIDERS":"aicore","SYNAPSE_REASONING_MODEL_ID":"global.anthropic.claude-sonnet-4-6","SYNAPSE_TRIAGE_MODEL_ID":"global.anthropic.claude-sonnet-4-6"}'
+# Once Bedrock has quota: update the runtime with SYNAPSE_MODEL_PROVIDERS=bedrock,aicore.
 
 # 4. Invoke
 aws bedrock-agentcore invoke-agent-runtime --region $REGION \
@@ -53,12 +68,10 @@ aws bedrock-agentcore invoke-agent-runtime --region $REGION \
   --cli-binary-format raw-in-base64-out --payload '{"scenario":"SC-01","include_trace":false}' out.json
 ```
 
-Check the environment-variable shorthand against `aws bedrock-agentcore-control create-agent-runtime
-help` when running it: values that contain commas may need the JSON form.
+The JSON form of `--environment-variables` is needed because `bedrock,aicore` contains a comma.
 
-**AI Core fallback:** to keep the SAP AI Core failover inside AgentCore, provide the `AICORE_*`
-variables (the client secret preferably from Secrets Manager, not as a plain environment variable).
-Without them, the runtime uses Bedrock only, and the deterministic autopilot if Bedrock fails.
+**AI Core credentials** come from the secret, never from the runtime's plain configuration. Without
+them, the runtime uses Bedrock only, and the deterministic autopilot if no model answers.
 
 ## Not covered yet
 

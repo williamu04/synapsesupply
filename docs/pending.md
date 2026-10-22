@@ -5,11 +5,11 @@ Everything not done yet, who it waits on, and the exact steps once it's unblocke
 
 | # | Item | Waits on | Status |
 |---|---|---|---|
-| 1 | Bedrock as the primary model | AWS: quota increase for Claude Sonnet 4.6 | case opened |
-| 2 | AWS services (AgentCore, ECR, S3, Lambda, DynamoDB) | hackathon organizers: the account's SCP | email drafted |
-| 3 | Deploy to AgentCore Runtime | #2 (and #1 for the model) | packaged, tested locally |
-| 4 | Durable case history (DynamoDB) | #2 | designed, interface ready |
-| 5 | Automatic ERP polling (poller → SQS FIFO → agent) | #2, plus a real S/4 to poll | not built |
+| 1 | Bedrock as the primary model | AWS: quota increase for Claude Sonnet 4.6 (zero in every region) | case opened (us-west-2); file it for ap-southeast-2 too |
+| 2 | AWS services (AgentCore, ECR, S3, Lambda, DynamoDB) | — | **solved:** allowed in `ap-southeast-2`, denied only in `us-west-2` |
+| 3 | Deploy to AgentCore Runtime (Sydney) | team: approve creating the runtime | ECR image, IAM role and secret created; runtime not yet |
+| 4 | Durable case history (DynamoDB) | nothing (Sydney allows DynamoDB) | designed, interface ready |
+| 5 | Automatic ERP polling (poller → SQS FIFO → agent) | a real S/4 to poll | not built |
 | 6 | Push the repo to GitHub | team: create the remote | 5 local commits on `main` |
 | 7 | Team rehearsal | team | open |
 | 8 | Start the demo from Joule (hidden "simulate SC-01" command) | team decision | proposed, about 1 hour |
@@ -20,8 +20,9 @@ Everything not done yet, who it waits on, and the exact steps once it's unblocke
 
 ## 1. Bedrock as the primary model
 
-**Now:** the account has the Anthropic use-case form approved, but every Claude 4.x tokens-per-minute
-quota is 0 (`ThrottlingException`). A Service Quotas increase for "Global cross-region model
+**Now:** the account has the Anthropic use-case form approved, but every model's tokens-per-minute
+quota is 0 (`ThrottlingException`) in both `us-west-2` and `ap-southeast-2`, including Amazon Nova, so
+it is account-wide, not regional. A Service Quotas increase for "Global cross-region model
 inference tokens per minute for Anthropic Claude Sonnet 4.6" is open. Claude 5.x is not offered to
 this account ("contact AWS Sales"), so the plan uses Sonnet 4.6 for both planning and triage. A
 separate Haiku quota is not needed.
@@ -30,7 +31,7 @@ separate Haiku quota is not needed.
 
 1. Check that the model answers (from the laptop, after `aws login`):
    ```bash
-   uv run python -c 'import boto3; print(boto3.client("bedrock-runtime", region_name="us-west-2").converse(modelId="global.anthropic.claude-sonnet-4-6", messages=[{"role":"user","content":[{"text":"Reply OK"}]}], inferenceConfig={"maxTokens":8})["output"])'
+   uv run python -c 'import boto3; print(boto3.client("bedrock-runtime", region_name="ap-southeast-2").converse(modelId="global.anthropic.claude-sonnet-4-6", messages=[{"role":"user","content":[{"text":"Reply OK"}]}], inferenceConfig={"maxTokens":8})["output"])'
    ```
 2. Set the model IDs locally (`.env`):
    ```
@@ -46,7 +47,7 @@ separate Haiku quota is not needed.
    - a **Bedrock API key** for the account, set as `AWS_BEARER_TOKEN_BEDROCK` on the API app
      (needs a check that the Strands `BedrockModel` / boto3 version picks it up);
    - an IAM user with only `bedrock:InvokeModel*`, with its access key set as `AWS_ACCESS_KEY_ID` /
-     `AWS_SECRET_ACCESS_KEY` (creating IAM users may also be blocked by the SCP; see #2).
+     `AWS_SECRET_ACCESS_KEY` (IAM itself works: the AgentCore role was created on 2026-10-22).
 
    Set either with `cf set-env synapsesupply-api-yang-penting-daftar-dulu …`, never in the manifest.
 5. Switch the deployed system to Bedrock first, AI Core as fallback. In `manifest.yml` (API app):
@@ -54,7 +55,7 @@ separate Haiku quota is not needed.
    SYNAPSE_MODEL_PROVIDERS: bedrock,aicore
    SYNAPSE_REASONING_MODEL_ID: global.anthropic.claude-sonnet-4-6
    SYNAPSE_TRIAGE_MODEL_ID: global.anthropic.claude-sonnet-4-6
-   AWS_REGION: us-west-2
+   AWS_REGION: ap-southeast-2
    ```
    Then `cf stop` + `cf push` the API app (`operations.md`).
 6. Re-time SC-01 on BTP. If it gets close to Joule's 60-second limit, keep `aicore` first instead.
@@ -62,23 +63,22 @@ separate Haiku quota is not needed.
    edge no longer "pending"), the eval table in `agent.md`, `demo.md`'s "Where is AWS?" answer, and
    re-record `recordings/sc0{1,2,3}-claude.jsonl`.
 
-## 2. AWS services blocked by the organization
+## 2. AWS services blocked by the organization: solved by region
 
-**Now:** `AccountFullAccessRole` has `AdministratorAccess` and no permissions boundary, but the
-account is in organization `o-aoyve0xnw6`, and AgentCore, ECR, S3, Lambda and DynamoDB return
-AccessDenied. That points to a Service Control Policy only the organizers can change. An email to the
-AWS hackathon leads is drafted (in the chat history), with the account ID, the errors and the
-question about the zero quota.
+`AccountFullAccessRole` has `AdministratorAccess`, but the organization (`o-aoyve0xnw6`) denies
+AgentCore, ECR, S3, Lambda and DynamoDB **in `us-west-2` only**. In `ap-southeast-2` all of them work
+(probed 2026-10-22). So all AWS resources go to Sydney, next to SAP AI Core (ap10). The drafted email
+to the organizers is no longer needed for access; it can still ask about the zero Bedrock quota.
 
-**When lifted:** re-probe, then continue with #3–#5:
 ```bash
-for c in "bedrock-agentcore-control list-agent-runtimes" "ecr describe-repositories" "dynamodb list-tables"; do aws $c --region us-west-2 --max-items 1 > /dev/null && echo "OK $c" || echo "DENIED $c"; done
+for c in "bedrock-agentcore-control list-agent-runtimes" "ecr describe-repositories" "dynamodb list-tables"; do aws $c --region ap-southeast-2 --max-items 1 > /dev/null && echo "OK $c" || echo "DENIED $c"; done
 ```
 
 ## 3. Deploy to AgentCore Runtime
 
-Ready: entry point `src/synapse/agentcore.py` and an ARM64 `Dockerfile`, built and run locally.
-Steps: `agentcore.md` (ECR push, execution role, `create-agent-runtime`, `invoke-agent-runtime`).
+Done in `ap-southeast-2`: the ARM64 image is in ECR, the execution role and the AI Core secret exist
+(`agentcore.md`). Left: `create-agent-runtime` (blocked by the session's permission guard as a
+production deploy; run it yourself or allow it), then `invoke-agent-runtime` with SC-01.
 After deploying, update deck slide 10 and `architecture.md`. AgentCore Gateway + Policy (mapping
 `synapse.cedar` to the gateway's tool names) comes after.
 
