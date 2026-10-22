@@ -86,8 +86,8 @@ sequenceDiagram
 
 | Planned | Status |
 |---|---|
-| Bedrock as the primary model | Code ready (`ModelRouter`); account lacks Claude access |
-| AgentCore Runtime / Gateway with AgentCore Policy | Runtime packaged (ARM64 image runs locally, `docs/agentcore.md`); Cedar file ready; AWS role denied AgentCore, ECR, Lambda |
-| DynamoDB case store, SQS FIFO ingestion, OData poller | Interfaces ready (`CaseRepository`, `CaseMessage`); AWS role denied; cases are in memory |
+| Bedrock as the primary model | Code ready (`ModelRouter`); account token quota is 0 (increase requested) |
+| AgentCore Gateway with AgentCore Policy | Cedar file ready. (AgentCore **Runtime is deployed** in ap-southeast-2, `docs/agentcore.md`) |
+| DynamoDB case store, SQS FIFO ingestion, OData poller | Interfaces ready (`CaseRepository`, `CaseMessage`); allowed in ap-southeast-2, not built; cases are in memory |
 | Real S/4HANA | Mock uses real API names and wire format; no S/4 in the tenant |
 | Verified approver identity in Joule | Needs XSUAA / principal propagation |

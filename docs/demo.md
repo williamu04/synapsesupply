@@ -61,12 +61,13 @@ SC-01 to show the contrast: a small, safe fix runs alone, a large one goes to a 
 - **"Is this real SAP?"** The S/4 system is a mock with real API names and wire format (OData v2,
   CSRF, `/Date()/`). The data is synthetic and fictional. Joule, AI Core, RPT-1 and Cloud Foundry
   are the real hackathon tenant.
-- **"Where is AWS?"** The agent runs on the AWS Strands Agents SDK with Bedrock as primary model and
-  Cedar (the policy language of AgentCore Policy). Say plainly that our AWS account doesn't have
-  Claude model access yet, so the live demo uses Claude via SAP AI Core; failover is automatic
-  (`ModelRouter`).
+- **"Where is AWS?"** The agent is built on the AWS Strands Agents SDK and **runs on Amazon Bedrock
+  AgentCore Runtime** (Sydney), with its credentials in AWS Secrets Manager; Cedar is the policy
+  language of AgentCore Policy. Say plainly that our account's Bedrock token quota is still 0, so
+  Claude is served via SAP AI Core for now; failover is automatic (`ModelRouter`). Optional proof:
+  `aws bedrock-agentcore invoke-agent-runtime` with `{"scenario":"SC-01"}` (`agentcore.md`).
 - **"Who approved in Joule?"** Shown as `joule:unknown-user`: the destination uses Basic auth to
   protect the agent, and access is limited to the team's IAS group. Verified user identity
   (XSUAA/principal propagation) is future work.
 - **"Does it scale?"** Each case is independent and serialized per PO item (FIFO semantics). The
-  missing pieces are persistence (cases are in memory) and the AgentCore Runtime deployment.
+  agent already runs on AgentCore Runtime; the missing piece is persistence (cases are in memory).

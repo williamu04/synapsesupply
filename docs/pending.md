@@ -7,7 +7,7 @@ Everything not done yet, who it waits on, and the exact steps once it's unblocke
 |---|---|---|---|
 | 1 | Bedrock as the primary model | AWS: quota increase for Claude Sonnet 4.6 (zero in every region) | case opened (us-west-2); file it for ap-southeast-2 too |
 | 2 | AWS services (AgentCore, ECR, S3, Lambda, DynamoDB) | — | **solved:** allowed in `ap-southeast-2`, denied only in `us-west-2` |
-| 3 | Deploy to AgentCore Runtime (Sydney) | team: approve creating the runtime | ECR image, IAM role and secret created; runtime not yet |
+| 3 | Deploy to AgentCore Runtime (Sydney) | — | **done:** runtime `synapsesupply-vFgJ0n85b6` READY, SC-01 verified |
 | 4 | Durable case history (DynamoDB) | nothing (Sydney allows DynamoDB) | designed, interface ready |
 | 5 | Automatic ERP polling (poller → SQS FIFO → agent) | a real S/4 to poll | not built |
 | 6 | Push the repo to GitHub | team: create the remote | 5 local commits on `main` |
@@ -76,9 +76,9 @@ for c in "bedrock-agentcore-control list-agent-runtimes" "ecr describe-repositor
 
 ## 3. Deploy to AgentCore Runtime
 
-Done in `ap-southeast-2`: the ARM64 image is in ECR, the execution role and the AI Core secret exist
-(`agentcore.md`). Left: `create-agent-runtime` (blocked by the session's permission guard as a
-production deploy; run it yourself or allow it), then `invoke-agent-runtime` with SC-01.
+Done in `ap-southeast-2` (`agentcore.md`): SC-01 invoked 2026-10-22: AWAITING_APPROVAL in 25 s, Claude via AI Core, RPT-1 live, Cedar ESCALATE. Still open: the console and Joule talk to the
+Cloud Foundry API, not to this runtime (each has its own in-memory cases); wiring them to AgentCore
+needs DynamoDB (#4) so both share one case store.
 After deploying, update deck slide 10 and `architecture.md`. AgentCore Gateway + Policy (mapping
 `synapse.cedar` to the gateway's tool names) comes after.
 

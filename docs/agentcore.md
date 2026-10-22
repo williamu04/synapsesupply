@@ -1,11 +1,13 @@
 # Deploying the agent to Amazon Bedrock AgentCore Runtime
 
-**Status (2026-10-22): image in ECR, role and secret created; the runtime itself is not created yet.**
+**Status (2026-10-22): deployed and running in `ap-southeast-2`.** Runtime `synapsesupply-vFgJ0n85b6`
+(status READY). SC-01 invoked end to end: `AWAITING_APPROVAL` in 25 s, Claude via SAP AI Core
+reasoning, SAP RPT-1 live (`sap-rpt-1.6`), Cedar ESCALATE ($8,280 > $5,000).
 The account's organization policy denies these services in `us-west-2` but **allows them in
 `ap-southeast-2` (Sydney)**, so everything runs there. Bedrock models have a zero token quota in both
 regions, so the runtime uses Claude on SAP AI Core until the quota arrives.
 
-Created in `ap-southeast-2` (2026-10-22):
+Created in `ap-southeast-2` (2026-10-22), besides the runtime:
 
 | Resource | Name |
 |---|---|
@@ -60,11 +62,13 @@ aws bedrock-agentcore-control create-agent-runtime --region $REGION \
   --network-configuration networkMode=PUBLIC \
   --role-arn arn:aws:iam::$ACCOUNT:role/SynapseSupplyAgentCoreRuntime \
   --environment-variables '{"AWS_REGION":"ap-southeast-2","SYNAPSE_SECRETS_ID":"synapsesupply/runtime","SYNAPSE_MODEL_PROVIDERS":"aicore","SYNAPSE_REASONING_MODEL_ID":"global.anthropic.claude-sonnet-4-6","SYNAPSE_TRIAGE_MODEL_ID":"global.anthropic.claude-sonnet-4-6"}'
-# Once Bedrock has quota: update the runtime with SYNAPSE_MODEL_PROVIDERS=bedrock,aicore.
+# Once Bedrock has quota: update-agent-runtime with SYNAPSE_MODEL_PROVIDERS=bedrock,aicore.
+# After pushing a new image, run update-agent-runtime with the same settings (a new runtime version).
 
 # 4. Invoke
 aws bedrock-agentcore invoke-agent-runtime --region $REGION \
-  --agent-runtime-arn <arn from step 3> \
+  --agent-runtime-arn arn:aws:bedrock-agentcore:$REGION:$ACCOUNT:runtime/synapsesupply-vFgJ0n85b6 \
+  --runtime-session-id "synapsesupply-demo-$(date +%s)-session-0001" \
   --cli-binary-format raw-in-base64-out --payload '{"scenario":"SC-01","include_trace":false}' out.json
 ```
 
