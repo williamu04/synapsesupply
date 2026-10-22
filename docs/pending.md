@@ -5,7 +5,7 @@ Everything not done yet, who it waits on, and the exact steps once it's unblocke
 
 | # | Item | Waits on | Status |
 |---|---|---|---|
-| 1 | Bedrock as the primary model | AWS: quota increase for Claude Sonnet 4.6 (zero in every region); 2 scripts for the team | requests open in us-west-2 and ap-southeast-2 (the one AgentCore needs) |
+| 1 | Bedrock as the primary model | AWS: quota increase for Claude Sonnet 4.6 (zero in every region) | fully prepared; switches by itself on approval |
 | 2 | AWS services (AgentCore, ECR, S3, Lambda, DynamoDB) | — | **solved:** allowed in `ap-southeast-2`, denied only in `us-west-2` |
 | 3 | Deploy to AgentCore Runtime (Sydney) | — | **done:** runtime `synapsesupply-vFgJ0n85b6` READY, SC-01 verified |
 | 4 | Durable case history (DynamoDB) | nothing (Sydney allows DynamoDB) | designed, interface ready |
@@ -27,8 +27,8 @@ Once the quota is active, the next try after a cooldown succeeds and Bedrock bec
 
 | Where | State | Left for the team |
 |---|---|---|
-| Cloud Foundry API (live demo) | deployed with the new router | run `scripts/cf_bedrock_credentials.sh` once (the permission guard blocks me from creating IAM keys) |
-| AgentCore runtime | new image in ECR (07:50) | run `scripts/agentcore_update.sh` once (the guard blocks me from updating runtimes) |
+| Cloud Foundry API (live demo) | deployed with the new router; AWS key set (`scripts/cf_bedrock_credentials.sh`, run 2026-10-22), Bedrock now answers `ThrottlingException` (quota only) | none |
+| AgentCore runtime | version 3, READY, new image (`scripts/agentcore_update.sh`, run 2026-10-22) | none |
 | Laptop | defaults need no `.env` change | none |
 
 **When AWS approves the quota:** nothing to configure. Within 5 minutes the logs stop showing
