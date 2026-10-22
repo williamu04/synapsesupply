@@ -19,9 +19,9 @@ from datetime import date
 from starlette.testclient import TestClient
 
 from synapse.agent import models
-from synapse.agent.cases import InMemoryCaseRepository
 from synapse.agent.config import Settings
 from synapse.agent.service import CaseService
+from synapse.aws_store import stores_from_env
 from synapse.env import load_env
 from synapse.erp import ErpClient, http_client
 from synapse.mock_s4.app import create_app as create_mock
@@ -53,8 +53,9 @@ def build_service() -> tuple[CaseService, DemoControl | None]:
         demo = DemoControl(http_client(erp_url))
 
     llm = os.environ.get("SYNAPSE_PLANNER", "auto") == "auto"
+    repo, trace_store, archive = stores_from_env()
     service = CaseService(
-        erp_factory=erp_factory, policy=PolicyEngine(), repo=InMemoryCaseRepository(),
+        erp_factory=erp_factory, policy=PolicyEngine(), repo=repo, trace_store=trace_store, archive=archive,
         business_date=demo.as_of if demo else date.today, settings=settings,
         delay_predictor=delay_predictor_from_env(),
         planner_model=(lambda: models.reasoning_model(settings)) if llm else None,

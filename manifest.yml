@@ -23,6 +23,10 @@ applications:
       # each refusal and AI Core answers. AWS credentials: cf set-env (docs/operations.md).
       SYNAPSE_MODEL_PROVIDERS: bedrock,aicore
       AWS_REGION: ap-southeast-2
+      # Shared case history with the AgentCore runtime (infra/synapsesupply.yaml); memory fallback.
+      SYNAPSE_CASES_TABLE: SynapseSupplyCases
+      SYNAPSE_TRACE_TABLE: SynapseSupplyTrace
+      SYNAPSE_AUDIT_BUCKET: synapsesupply-audit-398074591173-ap-southeast-2
       SYNAPSE_UI_DIR: ui/dist
       SYNAPSE_RECORDINGS_DIR: recordings
       SYNAPSE_DEMO_BOOT_SCENARIO: SC-01   # a restart never leaves the demo without a case

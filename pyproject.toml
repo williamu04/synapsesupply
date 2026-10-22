@@ -29,6 +29,7 @@ dev = [
     "pytest>=8",
     "httpx>=0.27",
     "ruff>=0.6",
+    "moto[dynamodb,s3]>=5",
 ]
 
 [build-system]

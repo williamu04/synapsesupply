@@ -1,0 +1,132 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  SynapseSupply on AWS (ap-southeast-2). Phase 1: shared case history (DynamoDB) and the audit
+  archive (S3), plus access for the existing AgentCore execution role and the Cloud Foundry user.
+  Deploy: scripts/aws_deploy.sh
+
+Parameters:
+  RuntimeRoleName:
+    Type: String
+    Default: SynapseSupplyAgentCoreRuntime
+    Description: Existing AgentCore Runtime execution role (created outside this stack)
+  CloudFoundryUserName:
+    Type: String
+    Default: synapsesupply-cf-bedrock
+    Description: Existing IAM user whose key the Cloud Foundry API app uses
+
+Resources:
+  CasesTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: SynapseSupplyCases
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: case_id, AttributeType: S }
+      KeySchema:
+        - { AttributeName: case_id, KeyType: HASH }
+      PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true }
+      SSESpecification: { SSEEnabled: true }
+      Tags: [{ Key: Project, Value: ID-Hackathon-2026 }]
+
+  TraceTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: SynapseSupplyTrace
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: case_id, AttributeType: S }
+        - { AttributeName: seq, AttributeType: N }
+      KeySchema:
+        - { AttributeName: case_id, KeyType: HASH }
+        - { AttributeName: seq, KeyType: RANGE }
+      SSESpecification: { SSEEnabled: true }
+      Tags: [{ Key: Project, Value: ID-Hackathon-2026 }]
+
+  AuditBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub synapsesupply-audit-${AWS::AccountId}-${AWS::Region}
+      VersioningConfiguration: { Status: Enabled }
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules: [{ ObjectOwnership: BucketOwnerEnforced }]
+      Tags: [{ Key: Project, Value: ID-Hackathon-2026 }]
+
+  AuditBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref AuditBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource: [!GetAtt AuditBucket.Arn, !Sub "${AuditBucket.Arn}/*"]
+            Condition: { Bool: { "aws:SecureTransport": "false" } }
+
+  # Same data access for the agent (AgentCore) and the API (Cloud Foundry): they share the cases.
+  RuntimeDataPolicy:
+    Type: AWS::IAM::RolePolicy
+    Properties:
+      RoleName: !Ref RuntimeRoleName
+      PolicyName: synapsesupply-data
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: CaseTables
+            Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:PutItem
+              - dynamodb:Query
+              - dynamodb:Scan
+              - dynamodb:BatchWriteItem
+              - dynamodb:DescribeTable
+            Resource: [!GetAtt CasesTable.Arn, !GetAtt TraceTable.Arn]
+          - Sid: AuditArchiveWrite
+            Effect: Allow
+            Action: s3:PutObject
+            Resource: !Sub "${AuditBucket.Arn}/cases/*"
+
+  CloudFoundryDataPolicy:
+    Type: AWS::IAM::UserPolicy
+    Properties:
+      UserName: !Ref CloudFoundryUserName
+      PolicyName: synapsesupply-data
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: CaseTables
+            Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:PutItem
+              - dynamodb:Query
+              - dynamodb:Scan
+              - dynamodb:BatchWriteItem
+              - dynamodb:DescribeTable
+            Resource: [!GetAtt CasesTable.Arn, !GetAtt TraceTable.Arn]
+          - Sid: AuditArchiveWrite
+            Effect: Allow
+            Action: s3:PutObject
+            Resource: !Sub "${AuditBucket.Arn}/cases/*"
+
+Outputs:
+  CasesTableName: { Value: !Ref CasesTable }
+  TraceTableName: { Value: !Ref TraceTable }
+  AuditBucketName: { Value: !Ref AuditBucket }

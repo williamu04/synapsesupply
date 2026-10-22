@@ -24,9 +24,10 @@ def jsonable(value: Any) -> Any:
 
 
 class Tracer:
-    def __init__(self, case_id: str, sinks: list[Sink] | None = None):
+    def __init__(self, case_id: str, sinks: list[Sink] | None = None, events: list[TraceEvent] | None = None):
+        """`events`: the case's earlier events (e.g. from another process), so numbering continues."""
         self.case_id = case_id
-        self.events: list[TraceEvent] = []
+        self.events: list[TraceEvent] = list(events or [])
         self.sinks = list(sinks or [])
 
     def emit(self, kind: TraceKind, title: str, **detail: Any) -> TraceEvent:

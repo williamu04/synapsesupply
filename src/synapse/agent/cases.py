@@ -1,8 +1,13 @@
-"""Case persistence. In AWS this is the DynamoDB `Cases` table (partition key `case_id`); the
-in-memory implementation serves local runs and tests with the same interface."""
+"""Case and trace persistence. On AWS these are the DynamoDB tables `SynapseSupplyCases` and
+`SynapseSupplyTrace` (`synapse.aws_store`); the in-memory implementations serve local runs and tests
+with the same interfaces, and act as the fallback when DynamoDB is unreachable."""
+from collections.abc import Callable
 from typing import Protocol
 
-from synapse.contracts import CaseRecord
+from synapse.contracts import CaseRecord, TraceEvent
+
+# Called with a case's final record and full trace, e.g. to write an audit file to S3.
+Archive = Callable[[CaseRecord, list[TraceEvent]], None]
 
 
 class CaseRepository(Protocol):
@@ -28,3 +33,23 @@ class InMemoryCaseRepository:
 
     def clear(self) -> None:
         self._items.clear()
+
+
+class TraceStore(Protocol):
+    def append(self, event: TraceEvent) -> None: ...
+    def events(self, case_id: str) -> list[TraceEvent]: ...
+    def clear(self) -> None: ...
+
+
+class InMemoryTraceStore:
+    def __init__(self) -> None:
+        self._events: dict[str, list[TraceEvent]] = {}
+
+    def append(self, event: TraceEvent) -> None:
+        self._events.setdefault(event.case_id, []).append(event)
+
+    def events(self, case_id: str) -> list[TraceEvent]:
+        return list(self._events.get(case_id, []))
+
+    def clear(self) -> None:
+        self._events.clear()

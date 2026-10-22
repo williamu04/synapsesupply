@@ -4,6 +4,7 @@ Planning runs the LLM agent (Strands) when a model is configured. If the model i
 raises, or finishes without a decision, the deterministic autopilot completes the case through the
 same tools — the trace records the switch, so a degraded run is never silent.
 """
+import logging
 from collections.abc import Callable
 from datetime import UTC, date, datetime
 
@@ -30,7 +31,7 @@ from synapse.erp import ErpClient
 from synapse.policy.engine import PolicyEngine
 
 from . import autopilot
-from .cases import CaseRepository
+from .cases import Archive, CaseRepository, InMemoryTraceStore, TraceStore
 from .config import Settings
 from .models import retry_strategy
 from .prompts import SOP_FILES, system_prompt
@@ -39,6 +40,7 @@ from .toolkit import CaseToolkit, execute
 from .trace import Sink, Tracer
 from .triage import triage
 
+log = logging.getLogger(__name__)
 ErpFactory = Callable[[Callable[[str], None]], ErpClient]  # receives the failover callback
 _POLICY_ACTION = {
     ActionType.CREATE_PURCHASE_ORDER: PolicyAction.CREATE_PURCHASE_ORDER,
@@ -85,21 +87,23 @@ class CaseService:
                  business_date: Callable[[], date], settings: Settings | None = None,
                  planner_model: Callable[[], Model | ModelRouter] | None = None,
                  triage_model: Callable[[], Model] | None = None, sinks: list[Sink] | None = None,
-                 delay_predictor: DelayPredictor | None = None):
+                 delay_predictor: DelayPredictor | None = None, trace_store: TraceStore | None = None,
+                 archive: Archive | None = None):
         self.erp_factory, self.policy, self.repo = erp_factory, policy, repo
         self.business_date, self.settings = business_date, settings or Settings()
         self.planner_model, self.triage_model = planner_model, triage_model
         self.sinks = list(sinks or [])
         self.delay_predictor = delay_predictor
-        self._tracers: dict[str, Tracer] = {}
+        self.trace_store = trace_store or InMemoryTraceStore()
+        self.archive = archive
 
     def trace(self, case_id: str) -> list[TraceEvent]:
-        return list(self._tracer(case_id).events)
+        return self.trace_store.events(case_id)
 
     def clear(self) -> None:
         """Forget all cases and traces (demo resets only)."""
         self.repo.clear()
-        self._tracers.clear()
+        self.trace_store.clear()
 
     # --- intake and planning --------------------------------------------------------------------
 
@@ -212,9 +216,8 @@ class CaseService:
         return record
 
     def _tracer(self, case_id: str) -> Tracer:
-        if case_id not in self._tracers:
-            self._tracers[case_id] = Tracer(case_id, self.sinks)
-        return self._tracers[case_id]
+        # Built from the store each time: another process (API, AgentCore) may have added events.
+        return Tracer(case_id, [self.trace_store.append, *self.sinks], events=self.trace_store.events(case_id))
 
     def _erp(self, tracer: Tracer) -> ErpClient:
         return self.erp_factory(lambda reason: tracer.emit(
@@ -225,4 +228,9 @@ class CaseService:
         record.status, record.summary, record.updated_at = status, summary, datetime.now(UTC)
         self.repo.put(record)
         tracer.emit(TraceKind.DONE, status.value, summary=summary, planner=planner, sap_document=record.sap_document)
+        if self.archive is not None:
+            try:
+                self.archive(record, list(tracer.events))
+            except Exception as e:  # noqa: BLE001 — the audit copy must never fail the case itself
+                log.warning("audit archive failed for %s: %s", record.case_id, type(e).__name__)
         return record
