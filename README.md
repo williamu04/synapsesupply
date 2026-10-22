@@ -16,7 +16,7 @@ When a wood-fiber delivery slips, the agent works through these steps:
 
 ![Architecture](docs/img/architecture-system.png)
 
-**Docs:** `docs/pending.md` (everything still open, with next steps) · `docs/architecture.md` (as built, and what isn't) · `docs/demo.md` (Demo Day runbook) ·
+**Docs:** `docs/pending.md` (everything still open, with next steps) · `docs/links.md` (every link used, and what for) · `docs/architecture.md` (as built, and what isn't) · `docs/demo.md` (Demo Day runbook) ·
 `docs/operations.md` (run, deploy, configure, secrets, troubleshooting) · `docs/agent.md` (agent internals, evals) ·
 `docs/api.md` · `docs/joule.md` · `docs/agentcore.md` · `docs/contracts.md`.
 
