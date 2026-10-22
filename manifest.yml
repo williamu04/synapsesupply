@@ -19,7 +19,10 @@ applications:
     env:
       BP_PYTHON_VERSION: "3.13.11"
       SYNAPSE_PLANNER: auto
-      SYNAPSE_MODEL_PROVIDERS: aicore   # Bedrock: switch to "bedrock,aicore" once the AWS account is verified
+      # Bedrock first; while it has no quota (or no credentials) it is skipped for 5 minutes after
+      # each refusal and AI Core answers. AWS credentials: cf set-env (docs/operations.md).
+      SYNAPSE_MODEL_PROVIDERS: bedrock,aicore
+      AWS_REGION: ap-southeast-2
       SYNAPSE_UI_DIR: ui/dist
       SYNAPSE_RECORDINGS_DIR: recordings
       SYNAPSE_DEMO_BOOT_SCENARIO: SC-01   # a restart never leaves the demo without a case

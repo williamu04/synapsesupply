@@ -31,7 +31,7 @@ def load_secrets_manager(client=None) -> list[str]:
     try:
         if client is None:
             import boto3
-            client = boto3.client("secretsmanager", region_name=os.environ.get("AWS_REGION"))
+            client = boto3.client("secretsmanager", region_name=os.environ.get("AWS_REGION") or "ap-southeast-2")
         values = json.loads(client.get_secret_value(SecretId=secret_id)["SecretString"])
     except Exception as e:  # noqa: BLE001 — a missing secret must not stop startup; the model fallback handles it
         log.warning("could not load secret %s: %s", secret_id, type(e).__name__)

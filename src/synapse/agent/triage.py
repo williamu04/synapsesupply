@@ -11,6 +11,8 @@ from pydantic import BaseModel
 from strands import Agent
 from strands.models import Model
 
+from .models import retry_strategy
+
 log = logging.getLogger(__name__)
 
 MATERIAL_KEYWORDS = {"chip": "WC-ACACIA", "acacia": "WC-ACACIA", "log": "LOG-EUCA", "eucalyptus": "LOG-EUCA"}
@@ -43,7 +45,8 @@ def _triage_with_model(text: str, suppliers: list[str], plants: dict[str, str], 
         f"{suppliers}; plants {plants} (answer with the code); materials WC-ACACIA (acacia wood chips) "
         "or LOG-EUCA (eucalyptus logs). Leave a field empty if the request does not say.\n\n"
         f"Request: {text}")
-    agent = Agent(model=model, callback_handler=None, structured_output_model=TriageResult)
+    agent = Agent(model=model, callback_handler=None, structured_output_model=TriageResult,
+                  retry_strategy=retry_strategy(model))
     result = agent(prompt).structured_output
     if not isinstance(result, TriageResult):
         raise TypeError("model returned no structured output")

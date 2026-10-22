@@ -61,9 +61,9 @@ aws bedrock-agentcore-control create-agent-runtime --region $REGION \
   --agent-runtime-artifact "containerConfiguration={containerUri=$ACCOUNT.dkr.ecr.$REGION.amazonaws.com/$REPO:latest}" \
   --network-configuration networkMode=PUBLIC \
   --role-arn arn:aws:iam::$ACCOUNT:role/SynapseSupplyAgentCoreRuntime \
-  --environment-variables '{"AWS_REGION":"ap-southeast-2","SYNAPSE_SECRETS_ID":"synapsesupply/runtime","SYNAPSE_MODEL_PROVIDERS":"aicore","SYNAPSE_REASONING_MODEL_ID":"global.anthropic.claude-sonnet-4-6","SYNAPSE_TRIAGE_MODEL_ID":"global.anthropic.claude-sonnet-4-6"}'
-# Once Bedrock has quota: update-agent-runtime with SYNAPSE_MODEL_PROVIDERS=bedrock,aicore.
-# After pushing a new image, run update-agent-runtime with the same settings (a new runtime version).
+  --environment-variables '{"AWS_REGION":"ap-southeast-2","SYNAPSE_SECRETS_ID":"synapsesupply/runtime","SYNAPSE_MODEL_PROVIDERS":"bedrock,aicore"}'
+# After pushing a new image: scripts/agentcore_update.sh (update-agent-runtime with the current
+# settings, bedrock,aicore; then waits for READY).
 
 # 4. Invoke
 aws bedrock-agentcore invoke-agent-runtime --region $REGION \

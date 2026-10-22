@@ -64,11 +64,13 @@ uv run python -m synapse.agent.cli all --planner autopilot --record demo.jsonl  
 
 ### Using the real models
 
-- **Bedrock:** run `aws login` (or `aws sso login`) for an account where the Claude models are
-  enabled. Defaults are `global.anthropic.claude-sonnet-5-5` (planning) and
-  `global.anthropic.claude-haiku-5-5` (triage) in `us-west-2`. Override with
-  `SYNAPSE_REASONING_MODEL_ID`, `SYNAPSE_TRIAGE_MODEL_ID` and `AWS_REGION`. **Check both IDs in the
-  Bedrock console first:** inference-profile IDs differ by region.
+- **Bedrock:** run `aws login`. Default model `global.anthropic.claude-sonnet-4-6` for planning and
+  triage, in `ap-southeast-2` (the account's region). Override with `SYNAPSE_REASONING_MODEL_ID`,
+  `SYNAPSE_TRIAGE_MODEL_ID` and `AWS_REGION`.
+- **Failover is fast and sticky:** no boto3 retries and no throttling backoff while another provider
+  exists; a provider that fails is skipped process-wide for 5 minutes (`CooldownStrategy` in
+  `models.py`). Before this, a throttled Bedrock made SC-01 take 203 s on AgentCore; now the
+  refusal costs about a second (verified 2026-10-22 against the real zero-quota Bedrock).
 - **SAP AI Core fallback:** `uv sync --extra aicore`, then set the `AICORE_*` variables (the same
   ones as the Joule A2A sample's `.env`). The router then fails over from Bedrock to
   `sap/anthropic--claude-4.6-sonnet`.

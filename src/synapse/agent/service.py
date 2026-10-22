@@ -32,6 +32,7 @@ from synapse.policy.engine import PolicyEngine
 from . import autopilot
 from .cases import CaseRepository
 from .config import Settings
+from .models import retry_strategy
 from .prompts import SOP_FILES, system_prompt
 from .scenarios import new_request_case_id  # noqa: F401 — re-export
 from .toolkit import CaseToolkit, execute
@@ -148,8 +149,9 @@ class CaseService:
     def _run_llm(self, kit: CaseToolkit, msg: CaseMessage, tracer: Tracer) -> str:
         """Returns the model's summary, or "" when the autopilot must take over."""
         try:
-            agent = Agent(model=self.planner_model(), tools=kit.tools, system_prompt=system_prompt(msg.process_type),
-                          callback_handler=None, hooks=[_ReasoningTrace(tracer)])
+            model = self.planner_model()
+            agent = Agent(model=model, tools=kit.tools, system_prompt=system_prompt(msg.process_type),
+                          callback_handler=None, hooks=[_ReasoningTrace(tracer)], retry_strategy=retry_strategy(model))
             result = agent(f"Handle case {msg.case_id}. Business date: {kit.today}.\n"
                            f"Case message:\n{msg.model_dump_json(indent=1)}")
             summary = plain_summary(str(result))

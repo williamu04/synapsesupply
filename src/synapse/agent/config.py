@@ -10,22 +10,24 @@ def _env(name: str, default: str) -> str:
 
 @dataclass(frozen=True)
 class Settings:
-    # Model routing: a cheap model triages free text, a stronger one plans. Bedrock IDs are
-    # cross-region inference profiles; confirm availability in the Bedrock console for the region.
+    # Bedrock IDs are cross-region inference profiles. Claude Sonnet 4.6 does both planning and
+    # triage: it is the model this account has quota for (Claude 5.x is not offered to it).
     reasoning_model_id: str = field(default_factory=lambda: _env(
-        "SYNAPSE_REASONING_MODEL_ID", "global.anthropic.claude-sonnet-5-5"))
+        "SYNAPSE_REASONING_MODEL_ID", "global.anthropic.claude-sonnet-4-6"))
     triage_model_id: str = field(default_factory=lambda: _env(
-        "SYNAPSE_TRIAGE_MODEL_ID", "global.anthropic.claude-haiku-5-5"))
-    aws_region: str = field(default_factory=lambda: _env("AWS_REGION", "us-west-2"))
+        "SYNAPSE_TRIAGE_MODEL_ID", "global.anthropic.claude-sonnet-4-6"))
+    # The account's home region: the organization denies AgentCore, ECR, DynamoDB etc. elsewhere.
+    aws_region: str = field(default_factory=lambda: _env("AWS_REGION", "ap-southeast-2"))
     # Fallback reasoning model on SAP AI Core (Generative AI Hub) via LiteLLM's "sap/" provider.
     # Enabled when AICORE_CLIENT_ID is set (see the Joule A2A sample's .env for the variables).
     aicore_model_id: str = field(default_factory=lambda: _env(
         "SYNAPSE_AICORE_MODEL_ID", "sap/anthropic--claude-4.6-sonnet"))
     max_tokens: int = 16_000
-    # Order of model providers to try. "aicore" alone skips Bedrock (e.g. on Cloud Foundry while the
-    # AWS account is unverified), avoiding a failed Bedrock call before every model request.
+    # Order of model providers to try. A provider that fails is skipped for `model_cooldown_s`
+    # (see models.CooldownStrategy), so listing Bedrock first costs nothing while it has no quota.
     model_providers: tuple[str, ...] = field(default_factory=lambda: tuple(
         p.strip() for p in _env("SYNAPSE_MODEL_PROVIDERS", "bedrock,aicore").split(",") if p.strip()))
+    model_cooldown_s: float = field(default_factory=lambda: float(_env("SYNAPSE_MODEL_COOLDOWN_S", "300")))
 
     # Planning parameters
     service_level: float = 0.95

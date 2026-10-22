@@ -5,7 +5,7 @@ Everything not done yet, who it waits on, and the exact steps once it's unblocke
 
 | # | Item | Waits on | Status |
 |---|---|---|---|
-| 1 | Bedrock as the primary model | AWS: quota increase for Claude Sonnet 4.6 (zero in every region) | requests open in us-west-2 and ap-southeast-2 (the one AgentCore needs) |
+| 1 | Bedrock as the primary model | AWS: quota increase for Claude Sonnet 4.6 (zero in every region); 2 scripts for the team | requests open in us-west-2 and ap-southeast-2 (the one AgentCore needs) |
 | 2 | AWS services (AgentCore, ECR, S3, Lambda, DynamoDB) | — | **solved:** allowed in `ap-southeast-2`, denied only in `us-west-2` |
 | 3 | Deploy to AgentCore Runtime (Sydney) | — | **done:** runtime `synapsesupply-vFgJ0n85b6` READY, SC-01 verified |
 | 4 | Durable case history (DynamoDB) | nothing (Sydney allows DynamoDB) | designed, interface ready |
@@ -20,48 +20,22 @@ Everything not done yet, who it waits on, and the exact steps once it's unblocke
 
 ## 1. Bedrock as the primary model
 
-**Now:** the account has the Anthropic use-case form approved, but every model's tokens-per-minute
-quota is 0 (`ThrottlingException`) in both `us-west-2` and `ap-southeast-2`, including Amazon Nova, so
-it is account-wide, not regional. A Service Quotas increase for "Global cross-region model
-inference tokens per minute for Anthropic Claude Sonnet 4.6" is open. Claude 5.x is not offered to
-this account ("contact AWS Sales"), so the plan uses Sonnet 4.6 for both planning and triage. A
-separate Haiku quota is not needed.
+**Prepared (2026-10-22), so the switch needs no configuration:** every deployment is already set to
+`bedrock,aicore` in `ap-southeast-2` with Claude Sonnet 4.6 as the default model. While Bedrock refuses
+(quota 0), the router skips it for 5 minutes after each refusal and Claude on SAP AI Core answers.
+Once the quota is active, the next try after a cooldown succeeds and Bedrock becomes primary by itself.
 
-**When the quota is approved:**
+| Where | State | Left for the team |
+|---|---|---|
+| Cloud Foundry API (live demo) | deployed with the new router | run `scripts/cf_bedrock_credentials.sh` once (the permission guard blocks me from creating IAM keys) |
+| AgentCore runtime | new image in ECR (07:50) | run `scripts/agentcore_update.sh` once (the guard blocks me from updating runtimes) |
+| Laptop | defaults need no `.env` change | none |
 
-1. Check that the model answers (from the laptop, after `aws login`):
-   ```bash
-   uv run python -c 'import boto3; print(boto3.client("bedrock-runtime", region_name="ap-southeast-2").converse(modelId="global.anthropic.claude-sonnet-4-6", messages=[{"role":"user","content":[{"text":"Reply OK"}]}], inferenceConfig={"maxTokens":8})["output"])'
-   ```
-2. Set the model IDs locally (`.env`):
-   ```
-   SYNAPSE_REASONING_MODEL_ID=global.anthropic.claude-sonnet-4-6
-   SYNAPSE_TRIAGE_MODEL_ID=global.anthropic.claude-sonnet-4-6
-   ```
-3. Run the regression eval on Bedrock only, and compare with the AI Core results in `agent.md`:
-   ```bash
-   SYNAPSE_MODEL_PROVIDERS=bedrock uv run python scripts/eval_scenarios.py --runs 3
-   ```
-4. **Give the Cloud Foundry app AWS credentials.** It has none: `aws login` credentials live only on
-   the laptop and expire. Options, best first:
-   - a **Bedrock API key** for the account, set as `AWS_BEARER_TOKEN_BEDROCK` on the API app
-     (needs a check that the Strands `BedrockModel` / boto3 version picks it up);
-   - an IAM user with only `bedrock:InvokeModel*`, with its access key set as `AWS_ACCESS_KEY_ID` /
-     `AWS_SECRET_ACCESS_KEY` (IAM itself works: the AgentCore role was created on 2026-10-22).
-
-   Set either with `cf set-env synapsesupply-api-yang-penting-daftar-dulu …`, never in the manifest.
-5. Switch the deployed system to Bedrock first, AI Core as fallback. In `manifest.yml` (API app):
-   ```yaml
-   SYNAPSE_MODEL_PROVIDERS: bedrock,aicore
-   SYNAPSE_REASONING_MODEL_ID: global.anthropic.claude-sonnet-4-6
-   SYNAPSE_TRIAGE_MODEL_ID: global.anthropic.claude-sonnet-4-6
-   AWS_REGION: ap-southeast-2
-   ```
-   Then `cf stop` + `cf push` the API app (`operations.md`).
-6. Re-time SC-01 on BTP. If it gets close to Joule's 60-second limit, keep `aicore` first instead.
-7. Update: deck slide 10 ("Amazon Bedrock as primary model": Running), `architecture.md` (Bedrock
-   edge no longer "pending"), the eval table in `agent.md`, `demo.md`'s "Where is AWS?" answer, and
-   re-record `recordings/sc0{1,2,3}-claude.jsonl`.
+**When AWS approves the quota:** nothing to configure. Within 5 minutes the logs stop showing
+`model provider bedrock failed`. Then: run the regression eval (`uv run python scripts/eval_scenarios.py
+--runs 3`), re-time SC-01, update deck slide 10 ("Amazon Bedrock as primary model": Running),
+`architecture.md`, the eval table in `agent.md`, `demo.md`'s "Where is AWS?" answer, and re-record
+`recordings/sc0{1,2,3}-claude.jsonl`.
 
 ## 2. AWS services blocked by the organization: solved by region
 
