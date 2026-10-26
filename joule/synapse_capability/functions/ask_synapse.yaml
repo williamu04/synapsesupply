@@ -6,11 +6,142 @@ action_groups:
         system_alias: SYNAPSE_AGENT
         agent_type: remote
         result_variable: "apiResponse"
+      # The A2A artifact is [markdown, data]; the data part carries the compact case view the
+      # rich messages below render (decision, options, 7-day projection).
+      - type: set-variables
+        variables:
+          - name: view
+            value: "<? apiResponse.body.artifacts[0].parts[1].data.view ?>"
       - type: message
         message:
           type: text
           markdown: true
           content: "<? apiResponse.body.artifacts[0].parts[0].text ?>"
+
+  # Decision card: effect badge, key figures and the SAP document.
+  - condition: view != null && view.decision != null
+    actions:
+      - type: message
+        message:
+          type: card
+          content:
+            title: "<? view.decision.action_type ?> · case <? view.case_id ?>"
+            subtitle: "Arrives <? view.decision.delivery_date ?> · $<? view.decision.financial_impact_usd ?> incremental"
+            description:
+              value: "<? view.summary ?>"
+              markdown: true
+            sections:
+              - title: Decision
+                attributes:
+                  - label: Policy
+                    value: "<? view.decision.effect ?>"
+                  - label: Plan confidence
+                    value: "<? view.decision.confidence ?>"
+                  - label: Compliance
+                    value: "<? view.decision.compliance ?>"
+                  - label: Quantity
+                    value: "<? view.decision.quantity ?> <? view.decision.unit ?>"
+                  - label: SAP document
+                    value: "<? view.sap_document ?>"
+
+  # Sourcing options as a UI5 Table card with compliance state badges.
+  - condition: view != null && view.options != null && view.options.size() > 0
+    actions:
+      - type: set-variables
+        scripting_type: handlebars
+        variables:
+          - name: optionRows
+            value: >
+              [
+                {{#eachJoin view.options}}
+                {
+                  "source": "{{source_name}}",
+                  "outcome": "{{outcome}}",
+                  "arrival": "{{earliest_arrival}}",
+                  "ontime": "{{on_time_probability}}",
+                  "cost": "{{incremental_cost_for_quantity}}",
+                  "compliance": "{{compliance}}",
+                  "state": "{{compliance_state}}"
+                }
+                {{/eachJoin}}
+              ]
+      - type: message
+        scripting_type: spel
+        message: >
+          {
+            "type": "ui5integrationCard",
+            "content": {
+              "_version": "1.17.0",
+              "sap.app": { "type": "card", "id": "synapse.sourcing.options" },
+              "sap.card": {
+                "type": "Table",
+                "header": {
+                  "title": "Sourcing options",
+                  "subtitle": "Best first · compliance from the EUDR gate"
+                },
+                "content": {
+                  "data": { "json": <? optionRows ?> },
+                  "maxItems": 8,
+                  "row": {
+                    "columns": [
+                      { "title": "Source", "value": "{source}", "identifier": true },
+                      { "title": "Outcome", "value": "{outcome}" },
+                      { "title": "Arrival", "value": "{arrival}" },
+                      { "title": "On-time", "value": "{ontime}", "hAlign": "End" },
+                      { "title": "Cost (USD)", "value": "{cost}", "hAlign": "End" },
+                      { "title": "Compliance", "value": "{compliance}", "state": "{state}",
+                        "showStateIcon": true, "inverted": true }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+
+  # Stock projection as a UI5 Analytical card: closing stock vs the safety-stock threshold.
+  - condition: view != null && view.analysis != null && view.analysis.projection != null && view.analysis.projection.size() > 0
+    actions:
+      - type: set-variables
+        scripting_type: handlebars
+        variables:
+          - name: chartRows
+            value: >
+              [
+                {{#eachJoin view.analysis.projection}}
+                {
+                  "day": "{{day}}",
+                  "closing": {{closing}},
+                  "safety": {{safety_stock}}
+                }
+                {{/eachJoin}}
+              ]
+      - type: message
+        scripting_type: spel
+        message: >
+          {
+            "type": "ui5integrationCard",
+            "content": {
+              "_version": "1.17.0",
+              "sap.app": { "type": "card", "id": "synapse.stock.projection" },
+              "sap.card": {
+                "type": "Analytical",
+                "header": {
+                  "title": "7-day stock projection",
+                  "subtitle": "Closing vs safety stock <? view.analysis.safety_stock ?> <? view.analysis.unit ?>"
+                },
+                "content": {
+                  "chartType": "line",
+                  "data": { "json": <? chartRows ?> },
+                  "dimensions": [ { "label": "Day", "value": "{day}" } ],
+                  "measures": [
+                    { "label": "Closing", "value": "{closing}" },
+                    { "label": "Safety stock", "value": "{safety}" }
+                  ]
+                }
+              }
+            }
+          }
+
   - condition: apiResponse.body.artifacts[0].parts.size() > 1 && apiResponse.body.artifacts[0].parts[1].data.awaiting_approval == true
     actions:
       - type: message

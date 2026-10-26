@@ -1,6 +1,7 @@
 import type { CaseRecord, Scenario, TraceEvent } from "./types";
 
-// Same origin when served by the API at /console; set VITE_API_BASE for a separate host (Amplify).
+// Same origin when served by the API at /console (the current deployment); set VITE_API_BASE only
+// if the SPA is hosted separately.
 const BASE: string = import.meta.env.VITE_API_BASE ?? "";
 const KEY: string | undefined = import.meta.env.VITE_API_KEY;
 

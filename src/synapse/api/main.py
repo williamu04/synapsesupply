@@ -9,7 +9,7 @@
   SYNAPSE_PLANNER          auto (Claude, autopilot fallback; default) | autopilot
   SYNAPSE_API_KEY          require this x-api-key on every route except /health
   SYNAPSE_RECORDINGS_DIR   directory of *.jsonl recordings for replay (default ./recordings)
-  SYNAPSE_CORS_ORIGINS     comma-separated origins allowed to call the API (e.g. the Amplify URL)
+  SYNAPSE_CORS_ORIGINS     comma-separated origins allowed to call the API (only for a separately hosted UI)
   SYNAPSE_UI_DIR           built console to serve at /console (default ./ui/dist, if present)
   SYNAPSE_DEMO_BOOT_SCENARIO  demo mode: stage this scenario (e.g. SC-01) at every startup
 """

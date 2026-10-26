@@ -39,6 +39,7 @@ from pydantic import BaseModel, Field
 from synapse.agent.scenarios import request_message, scenario_message
 from synapse.agent.service import CaseService, CaseStateError
 from synapse.agent.trace import load_recording
+from synapse.api.view import case_view
 from synapse.contracts import CaseMessage, CaseRecord, CaseStatus, TraceEvent, TraceKind
 
 FINAL = {CaseStatus.EXECUTED, CaseStatus.REJECTED, CaseStatus.BLOCKED, CaseStatus.NO_ACTION_NEEDED,
@@ -207,6 +208,15 @@ def create_api(service: CaseService, *, demo: DemoControl | None = None, api_key
     def get_trace(case_id: str) -> list[TraceEvent]:
         record_or_404(case_id)
         return service.trace(case_id)
+
+    @app.get("/cases/{case_id}/view", dependencies=guarded)
+    def get_view(case_id: str) -> dict:
+        """Compact structured view for the Joule capability (card, options table, projection)."""
+        record = record_or_404(case_id)
+        if isinstance(record, Accepted):  # still queued: no decision or analysis yet
+            return {"case_id": case_id, "status": CaseStatus.NEW.value, "decision": None,
+                    "analysis": None, "options": []}
+        return case_view(record, service.trace(case_id))
 
     @app.post("/cases/{case_id}/approve", dependencies=guarded)
     def approve(case_id: str, body: ApproveIn) -> CaseRecord:

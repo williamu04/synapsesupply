@@ -97,6 +97,10 @@ class SynapseApi:
     def case(self, case_id: str) -> dict:
         return self._call("GET", f"/cases/{case_id}")
 
+    def view(self, case_id: str) -> dict:
+        """Compact structured view for the Joule cards (decision, options, projection)."""
+        return self._call("GET", f"/cases/{case_id}/view")
+
     def cases(self) -> list[dict]:
         return self._call("GET", "/cases")
 
@@ -115,14 +119,16 @@ class BridgeError(Exception):
 
 @dataclass(frozen=True)
 class Reply:
-    """Markdown for the chat plus structured fields the Joule function uses for buttons."""
+    """Markdown for the chat plus structured fields the Joule function renders: the case id/status
+    for the buttons, and the compact `view` (decision, options, projection) for the rich messages."""
     text: str
     case_id: str | None = None
     status: str | None = None
+    view: dict | None = None
 
     @property
     def data(self) -> dict:
-        return {"case_id": self.case_id, "status": self.status,
+        return {"case_id": self.case_id, "status": self.status, "view": self.view,
                 "awaiting_approval": self.status == "AWAITING_APPROVAL"}
 
 
@@ -135,8 +141,18 @@ def respond(text: str, user: str | None, api: SynapseApi) -> Reply:
     approver = f"joule:{user}" if user else "joule:unknown-user"
     cmd = parse(text)
 
+    def view_of(case_id: str | None) -> dict | None:
+        """Best-effort: a rich-view failure must never replace the readable text reply."""
+        if not case_id:
+            return None
+        try:
+            return api.view(case_id)
+        except (BridgeError, httpx.HTTPError):
+            return None
+
     def case_reply(case: dict) -> Reply:
-        return Reply(render_case(case, api.console_url), case.get("case_id"), case.get("status"))
+        case_id = case.get("case_id")
+        return Reply(render_case(case, api.console_url), case_id, case.get("status"), view_of(case_id))
 
     try:
         if cmd.kind == "APPROVE":

@@ -201,9 +201,16 @@ def test_reply_carries_button_data(api):
     from synapse.joule.bridge import respond
     api.client.post("/demo/scenarios/SC-01/run?wait=true")
     pending = respond("What needs my approval?", "dewi", api)
-    assert pending.data == {"case_id": "4500000091-10", "status": "AWAITING_APPROVAL", "awaiting_approval": True}
+    assert pending.data == {"case_id": "4500000091-10", "status": "AWAITING_APPROVAL",
+                            "awaiting_approval": True, "view": None}
+    status = respond("status of 4500000091-10", "dewi", api)
+    view = status.data["view"]
+    assert view["decision"]["effect"] == "ESCALATE" and view["decision"]["option_id"] == "STO:1200"
+    assert view["analysis"]["safety_stock"] > 0 and len(view["analysis"]["projection"]) == 7
+    assert any(o["compliance"] == "BLOCK" and o["compliance_state"] == "Error" for o in view["options"])
     done = respond("approve 4500000091-10", "dewi", api)
     assert done.data["awaiting_approval"] is False and done.data["status"] == "EXECUTED"
+    assert done.data["view"]["sap_document"]
     assert respond("approve 4599999999-10", "dewi", api).data["case_id"] is None
 
 
@@ -220,7 +227,21 @@ def test_a2a_artifact_has_text_then_data(api):
 def test_quick_reply_buttons_send_commands_the_agent_understands():
     fn = yaml.safe_load((JOULE_DIR / "synapse_capability" / "functions" / "ask_synapse.yaml").read_text())
     quick = next(a for g in fn["action_groups"] for a in g["actions"] if a["type"] == "message"
-                 and a["message"]["type"] == "quickReplies")
+                 and isinstance(a["message"], dict) and a["message"]["type"] == "quickReplies")
     for button in quick["message"]["content"]["buttons"]:
         value = button["value"].replace("<? apiResponse.body.artifacts[0].parts[1].data.case_id ?>", "4500000091-10")
         assert parse(value).kind in ("APPROVE", "STATUS") and parse(value).case_id == "4500000091-10"
+
+
+def test_function_builds_rich_messages_from_the_view():
+    fn = yaml.safe_load((JOULE_DIR / "synapse_capability" / "functions" / "ask_synapse.yaml").read_text())
+    messages = [a for g in fn["action_groups"] for a in g["actions"] if a["type"] == "message"]
+    inline = {m["message"]["type"] for m in messages if isinstance(m["message"], dict)}
+    assert {"text", "card", "quickReplies"} <= inline
+    rich = [m["message"] for m in messages if isinstance(m["message"], str) and m.get("scripting_type") == "spel"]
+    assert len(rich) == 2
+    assert all('"type": "ui5integrationCard"' in body for body in rich)
+    assert any('"type": "Table"' in body for body in rich)
+    assert any('"type": "Analytical"' in body for body in rich)
+    assert any("view.options" in str(g) for g in fn["action_groups"])
+    assert any("view.analysis.projection" in str(g) for g in fn["action_groups"])

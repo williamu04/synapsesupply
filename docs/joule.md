@@ -24,6 +24,28 @@ Joule chat ──► capability (joule/) ──► BTP destination SYNAPSE_AGENT
 3. Approve the case in Joule.
 4. Watch the console's trace show APPROVAL → ACTION → DONE live.
 
+## Rich replies in the chat
+
+The console is a read-only monitor; decisions happen in Joule. The capability therefore renders the
+case natively in the chat, not just as text:
+
+| Element | Renders |
+|---|---|
+| markdown `text` | the same summary as before — always sent, so a card problem degrades gracefully |
+| `card` | decision: effect badge (ALLOW/ESCALATE/DENY), confidence, compliance, quantity, SAP document |
+| `ui5integrationCard` `Table` | sourcing options: source, outcome, arrival, RPT-1 on-time %, incremental cost, EUDR compliance badge |
+| `ui5integrationCard` `Analytical` | 7-day stock projection (closing stock vs safety stock) |
+| `quickReplies` | Approve / Show status (the markdown text carries the console deep link) |
+
+**Data flow.** The A2A bridge calls `GET /cases/{id}/view` (same API) and puts the compact view in the
+reply's data part (`parts[1].data.view`); the function YAML turns it into the cards with
+Handlebars/SpEL. No second BTP destination and no protocol change. If the view cannot be fetched, the
+reply is the markdown text exactly as before.
+
+Message types and UI5 cards are limited and static (the manifest cannot fetch at render time); keep
+option rows at 8 or fewer. Validate any change in the Joule web client — especially the `Analytical`
+manifest — with `joule lint . && joule deploy --compile .`.
+
 ## Deployed (team yang-penting-daftar-dulu, 2026-10-21)
 
 | App | URL | Access |

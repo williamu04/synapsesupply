@@ -119,9 +119,31 @@ def test_joule_request(api):
     assert body["policy"]["policy_ids"] == ["Policy-ComplianceBlock"]
 
 
+def test_case_view_for_joule(api):
+    record = api.post("/demo/scenarios/SC-01/run?wait=true").json()
+    view = api.get(f"/cases/{record['case_id']}/view").json()
+    assert view["status"] == "AWAITING_APPROVAL" and view["case_id"] == "4500000091-10"
+    assert view["decision"]["effect"] == "ESCALATE" and view["decision"]["option_id"] == "STO:1200"
+    assert view["decision"]["financial_impact_usd"] == 8280.0 and view["decision"]["compliance"] is None
+    assert view["analysis"]["safety_stock"] > 0 and len(view["analysis"]["projection"]) == 7
+    assert any(o["compliance"] == "BLOCK" and o["compliance_state"] == "Error" for o in view["options"])
+    assert any(o["compliance"] == "HOLD" and o["compliance_state"] == "Warning" for o in view["options"])
+    assert sum(o["chosen"] for o in view["options"]) == 1
+    assert next(o for o in view["options"] if o["chosen"])["option_id"] == "STO:1200"
+
+
+def test_case_view_of_a_denied_request(api):
+    body = api.post("/requests?wait=true", json={
+        "utterance": "Order 1,300 tonnes of acacia chips for Mill Riau-1 from Siak Agro Wood"}).json()
+    view = api.get(f"/cases/{body['case_id']}/view").json()
+    assert view["decision"]["effect"] == "DENY" and view["decision"]["compliance"] == "BLOCK"
+    assert next(o for o in view["options"] if o["chosen"])["rejected_reason"] is None
+
+
 def test_unknown_case(api):
     assert api.get("/cases/4599999999-10").status_code == 404
     assert api.get("/cases/4599999999-10/events").status_code == 404
+    assert api.get("/cases/4599999999-10/view").status_code == 404
 
 
 def test_demo_reset_clears_cases_and_erp(api, client):

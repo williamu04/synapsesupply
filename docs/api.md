@@ -9,8 +9,9 @@ SYNAPSE_ERP_URL=http://localhost:8000 SYNAPSE_DEMO=1 uv run uvicorn synapse.api.
 
 All environment variables are documented in `src/synapse/api/main.py`. If `SYNAPSE_API_KEY` is set,
 send it as `x-api-key` on every route except `/health`. Browsers can't add headers to an SSE
-connection, so `?api_key=` is accepted too. For a UI on another origin (Amplify), list that origin
-in `SYNAPSE_CORS_ORIGINS` and build the UI with `VITE_API_BASE=https://<api-host>`.
+connection, so `?api_key=` is accepted too. The console is normally served same-origin, so CORS is
+not needed; to host the SPA separately, list that origin in `SYNAPSE_CORS_ORIGINS` and build the UI
+with `VITE_API_BASE=https://<api-host>`.
 
 If `ui/dist` exists, the built console is served at `/console/`, so the whole demo runs from one URL.
 
@@ -23,6 +24,7 @@ If `ui/dist` exists, the built console is served at `/console/`, so the whole de
 | GET | `/cases` | | `CaseRecord[]`, oldest first |
 | GET | `/cases/{id}` | | `CaseRecord`, or `{case_id, status: NEW}` while queued |
 | GET | `/cases/{id}/trace` | | `TraceEvent[]` |
+| GET | `/cases/{id}/view` | | Compact structured view for Joule: case, decision, stock analysis, sourcing options (`docs/joule.md`) |
 | GET | `/cases/{id}/events` | | SSE stream (see below) |
 | POST | `/cases/{id}/approve` | `{approver}` | `CaseRecord` (409 if not awaiting approval) |
 | POST | `/cases/{id}/reject` | `{approver, reason}` | `CaseRecord` |
@@ -49,6 +51,22 @@ data: {"case_id":"4500000091-10","seq":9,"ts":"…","kind":"POLICY","title":"Ced
   later. Use `?follow=false` to get the replay only.
 - On reconnect, `EventSource` sends `Last-Event-ID` and the stream resumes after that `seq`.
 - A `: keep-alive` comment is sent every 15 s.
+
+## Case view (Joule rich replies)
+
+`GET /cases/{id}/view` returns one small JSON object derived from the record and its trace — no extra
+storage. The Joule A2A bridge forwards it in the data part of the reply, so the capability can render
+a decision `card`, an options `Table` and a projection `Analytical` chart without another round trip:
+
+```json
+{"case_id":"…","status":"AWAITING_APPROVAL","decision":{"effect":"ESCALATE","option_id":"STO:1200",…},
+ "analysis":{"safety_stock":1196.0,"first_breach_day":"…","projection":[…],…},
+ "options":[{"source_name":"…","compliance":"BLOCK","compliance_state":"Error","chosen":false,…}]}
+```
+
+`compliance_state` (`Success|Warning|Error|Information`) and `outcome` (`Chosen|Rejected|Considered`)
+are precomputed so the function YAML needs no equality helpers. A case still queued returns only
+`{case_id, status: "NEW"}`.
 
 ## Useful views for the UI
 

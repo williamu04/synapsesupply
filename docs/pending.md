@@ -18,6 +18,8 @@ Everything not done yet, who it waits on, and the exact steps once it's unblocke
 | 10 | Verified approver identity in Joule | SAP principal propagation setup | future work |
 | 11 | Joule notifications (push escalations to the planner) | SAP notification/task service | future work |
 | 12 | Real S/4HANA instead of the mock | an S/4 system | future work |
+| 13 | Rich Joule replies (decision card, options table, projection chart) | — | **done** 2026-10-23: `GET /cases/{id}/view` + capability; validate the Analytical card in the tenant |
+| 14 | AWS Amplify hosting of the React SPA | — | **dropped**: the console is served same-origin by the API at `/console/`; Joule is the decision surface. No Amplify resources |
 
 ## 1. Bedrock as the primary model
 

@@ -82,6 +82,14 @@ sequenceDiagram
 | Confidence | Code (evidence quality, not model self-assessment) |
 | Whether it may run | Cedar; a human for ESCALATE |
 
+## Presentation surfaces
+
+| Surface | Role |
+|---|---|
+| SAP Joule (web client) | **The decision surface.** Chat plus native cards: decision `card`, options `Table`, projection `Analytical` chart, Approve/Show-status buttons. Fed by the A2A reply's data part, which carries `GET /cases/{id}/view`. |
+| Console (`ui/`, served by the API at `/console/`) | Read-only deep detail: full live trace, chart, options, replay, demo controls. Not used for decisions. Served same-origin by FastAPI on Cloud Foundry; AWS Amplify is not used. |
+| Joule approval card / API | Approve/reject still goes through the API and Cedar as the approver. |
+
 ## Not yet built
 
 | Planned | Status |
