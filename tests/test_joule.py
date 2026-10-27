@@ -1,5 +1,6 @@
 import base64
 import json
+import re
 from pathlib import Path
 
 import httpx
@@ -245,3 +246,14 @@ def test_function_builds_rich_messages_from_the_view():
     assert any('"type": "Analytical"' in body for body in rich)
     assert any("view.options" in str(g) for g in fn["action_groups"])
     assert any("view.analysis.projection" in str(g) for g in fn["action_groups"])
+
+
+def test_projection_chart_feeds_every_measure_and_dimension():
+    """UI5 draws an Analytical card only through `feeds`; without them Joule shows a grey placeholder."""
+    fn = yaml.safe_load((JOULE_DIR / "synapse_capability" / "functions" / "ask_synapse.yaml").read_text())
+    body = next(a["message"] for g in fn["action_groups"] for a in g["actions"]
+                if a["type"] == "message" and '"type": "Analytical"' in str(a["message"]))
+    card = json.loads(re.sub(r"<\?.*?\?>", "0", body))["content"]["sap.card"]["content"]
+    feeds = {f["uid"]: f["values"] for f in card["feeds"]}
+    assert feeds["valueAxis"] == [m["name"] for m in card["measures"]]
+    assert feeds["categoryAxis"] == [d["name"] for d in card["dimensions"]]

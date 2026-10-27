@@ -99,6 +99,7 @@ action_groups:
           }
 
   # Stock projection as a UI5 Analytical card: closing stock vs the safety-stock threshold.
+  # `feeds` is mandatory: without it UI5 never draws the chart and the card stays a grey placeholder.
   - condition: view != null && view.analysis != null && view.analysis.projection != null && view.analysis.projection.size() > 0
     actions:
       - type: set-variables
@@ -130,12 +131,16 @@ action_groups:
                   "subtitle": "Closing vs safety stock <? view.analysis.safety_stock ?> <? view.analysis.unit ?>"
                 },
                 "content": {
-                  "chartType": "line",
+                  "chartType": "Line",
                   "data": { "json": <? chartRows ?> },
-                  "dimensions": [ { "label": "Day", "value": "{day}" } ],
+                  "dimensions": [ { "name": "Day", "value": "{day}" } ],
                   "measures": [
-                    { "label": "Closing", "value": "{closing}" },
-                    { "label": "Safety stock", "value": "{safety}" }
+                    { "name": "Closing", "value": "{closing}" },
+                    { "name": "Safety stock", "value": "{safety}" }
+                  ],
+                  "feeds": [
+                    { "uid": "valueAxis", "type": "Measure", "values": [ "Closing", "Safety stock" ] },
+                    { "uid": "categoryAxis", "type": "Dimension", "values": [ "Day" ] }
                   ]
                 }
               }
