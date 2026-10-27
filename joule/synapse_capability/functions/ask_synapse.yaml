@@ -132,6 +132,7 @@ action_groups:
                 },
                 "content": {
                   "chartType": "Line",
+                  "chartProperties": { "title": { "visible": false }, "valueAxis": { "title": { "visible": false } } },
                   "data": { "json": <? chartRows ?> },
                   "dimensions": [ { "name": "Day", "value": "{day}" } ],
                   "measures": [
