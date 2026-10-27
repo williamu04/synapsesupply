@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { inlineBold } from "../inline";
 import type { TraceEvent } from "../types";
 
 const ICON: Record<string, string> = {
@@ -33,7 +34,7 @@ export function Timeline({ events, live }: { events: TraceEvent[]; live: boolean
               <span className="ev-title">{label(e)}</span>
               <span className="ev-time muted">+{((Date.parse(e.ts) - t0) / 1000).toFixed(2)} s</span>
             </button>
-            {e.kind === "REASONING" && <p className="ev-text">{String(e.detail.text ?? "")}</p>}
+            {e.kind === "REASONING" && <p className="ev-text">{inlineBold(String(e.detail.text ?? ""))}</p>}
             {open === e.seq && <pre className="ev-detail">{JSON.stringify(e.detail, null, 2)}</pre>}
           </li>
         ))}

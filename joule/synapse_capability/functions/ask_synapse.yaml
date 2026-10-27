@@ -26,7 +26,7 @@ action_groups:
           type: card
           content:
             title: "<? view.decision.action_type ?> · case <? view.case_id ?>"
-            subtitle: "Arrives <? view.decision.delivery_date ?> · $<? view.decision.financial_impact_usd ?> incremental"
+            subtitle: "Arrives <? view.decision.delivery_date ?> · <? view.decision.financial_impact_display ?> incremental"
             description:
               value: "<? view.summary ?>"
               markdown: true
@@ -38,9 +38,9 @@ action_groups:
                   - label: Plan confidence
                     value: "<? view.decision.confidence ?>"
                   - label: Compliance
-                    value: "<? view.decision.compliance ?>"
+                    value: "<? view.decision.compliance_display ?>"
                   - label: Quantity
-                    value: "<? view.decision.quantity ?> <? view.decision.unit ?>"
+                    value: "<? view.decision.quantity_display ?>"
                   - label: SAP document
                     value: "<? view.sap_document ?>"
 

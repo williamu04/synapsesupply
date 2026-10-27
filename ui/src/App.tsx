@@ -6,6 +6,7 @@ import { OptionsTable } from "./components/OptionsTable";
 import { ProjectionChart } from "./components/ProjectionChart";
 import { Timeline } from "./components/Timeline";
 import { fmtDuration } from "./format";
+import { inlineBold } from "./inline";
 import { FINAL_STATUSES, type CaseRecord, type Scenario, type TraceEvent } from "./types";
 
 type Selection = { mode: "live"; caseId: string } | { mode: "replay"; name: string; speed: number } | null;
@@ -250,7 +251,7 @@ export default function App() {
                 {Boolean(view.details?.carrier_notice) && (
                   <p><strong>Carrier notice:</strong> {String(view.details?.carrier_notice)}</p>
                 )}
-                {view.summary && <p>{view.summary}</p>}
+                {view.summary && <p>{inlineBold(view.summary)}</p>}
                 {(record?.sap_document ?? view.sapDocument) && (
                   <p className="status good">✓ S/4 document {record?.sap_document ?? view.sapDocument}</p>
                 )}
