@@ -1,17 +1,17 @@
-# Pending work (as of 2026-10-22)
+# Pending work (as of 2026-10-27)
 
 Everything not done yet, who it waits on, and the exact steps once it's unblocked. Demo Day is
 2026-10-31. Update this file when an item moves.
 
 | # | Item | Waits on | Status |
 |---|---|---|---|
-| 1 | Bedrock as the primary model | AWS: quota increase for Claude Sonnet 4.6 (zero in every region) | fully prepared; switches by itself on approval |
+| 1 | Bedrock as the primary model | an AWS account with Bedrock quota for Claude | not before Demo Day: the hackathon account's quota is zero and for now there is no Bedrock account or quota; Claude runs on SAP AI Core |
 | 2 | AWS services (AgentCore, ECR, S3, Lambda, DynamoDB) | — | **solved:** allowed in `ap-southeast-2`, denied only in `us-west-2` |
 | 3 | Deploy to AgentCore Runtime (Sydney) | — | **done:** runtime `synapsesupply-vFgJ0n85b6` READY, SC-01 verified |
 | 4 | Shared case history (DynamoDB) + audit archive (S3) | — | **done** 2026-10-22: BTP app and AgentCore share cases and traces |
 | 5 | Automatic ERP polling (poller → SQS FIFO → agent) | — | **done** 2026-10-22: ERP change to escalated case in 84 s, live |
 | 5b | AgentCore Gateway + Policy (Cedar enforced outside the agent) | — | **dropped** for Demo Day (risk); presented as next step |
-| 6 | Push the repo to GitHub | team: create the remote | local commits on `main` |
+| 6 | Push the repo to GitHub | — | **done**: `https://github.com/williamu04/synapsesupply` (first commit 2026-10-22) |
 | 7 | Team rehearsal | team | open |
 | 8 | Start the demo from Joule (hidden "simulate SC-01" command) | team decision | proposed, about 1 hour |
 | 9 | Rotate all secrets | after Demo Day | open |
@@ -23,10 +23,14 @@ Everything not done yet, who it waits on, and the exact steps once it's unblocke
 
 ## 1. Bedrock as the primary model
 
-**Prepared (2026-10-22), so the switch needs no configuration:** every deployment is already set to
-`bedrock,aicore` in `ap-southeast-2` with Claude Sonnet 4.6 as the default model. While Bedrock refuses
-(quota 0), the router skips it for 5 minutes after each refusal and Claude on SAP AI Core answers.
-Once the quota is active, the next try after a cooldown succeeds and Bedrock becomes primary by itself.
+The hackathon AWS account has a zero Bedrock token quota for Claude, and for now there is no
+Bedrock account or quota, so Claude runs on SAP AI Core. ModelRouter still lists Bedrock
+first; moving to Bedrock is a configuration change on an account with quota. No approval is expected
+before Demo Day.
+
+Every deployment is set to `bedrock,aicore` in `ap-southeast-2` with Claude Sonnet 4.6 as the default
+model. While Bedrock refuses, the router skips it for 5 minutes after each refusal and Claude on SAP
+AI Core answers.
 
 | Where | State | Left for the team |
 |---|---|---|
@@ -34,7 +38,7 @@ Once the quota is active, the next try after a cooldown succeeds and Bedrock bec
 | AgentCore runtime | version 3, READY, new image (`scripts/agentcore_update.sh`, run 2026-10-22) | none |
 | Laptop | defaults need no `.env` change | none |
 
-**When AWS approves the quota:** nothing to configure. Within 5 minutes the logs stop showing
+**On an account with quota:** nothing else to configure. Within 5 minutes the logs stop showing
 `model provider bedrock failed`. Then: run the regression eval (`uv run python scripts/eval_scenarios.py
 --runs 3`), re-time SC-01, update deck slide 10 ("Amazon Bedrock as primary model": Running),
 `architecture.md`, the eval table in `agent.md`, `demo.md`'s "Where is AWS?" answer, and re-record
@@ -45,7 +49,7 @@ Once the quota is active, the next try after a cooldown succeeds and Bedrock bec
 `AccountFullAccessRole` has `AdministratorAccess`, but the organization (`o-aoyve0xnw6`) denies
 AgentCore, ECR, S3, Lambda and DynamoDB **in `us-west-2` only**. In `ap-southeast-2` all of them work
 (probed 2026-10-22). So all AWS resources go to Sydney, next to SAP AI Core (ap10). The drafted email
-to the organizers is no longer needed for access; it can still ask about the zero Bedrock quota.
+to the organizers is no longer needed for access.
 
 ```bash
 for c in "bedrock-agentcore-control list-agent-runtimes" "ecr describe-repositories" "dynamodb list-tables"; do aws $c --region ap-southeast-2 --max-items 1 > /dev/null && echo "OK $c" || echo "DENIED $c"; done
@@ -53,11 +57,9 @@ for c in "bedrock-agentcore-control list-agent-runtimes" "ecr describe-repositor
 
 ## 3. Deploy to AgentCore Runtime
 
-Done in `ap-southeast-2` (`agentcore.md`): SC-01 invoked 2026-10-22: AWAITING_APPROVAL in 25 s, Claude via AI Core, RPT-1 live, Cedar ESCALATE. Still open: the console and Joule talk to the
-Cloud Foundry API, not to this runtime (each has its own in-memory cases); wiring them to AgentCore
-needs DynamoDB (#4) so both share one case store.
-After deploying, update deck slide 10 and `architecture.md`. AgentCore Gateway + Policy (mapping
-`synapse.cedar` to the gateway's tool names) comes after.
+Done in `ap-southeast-2` (`agentcore.md`): SC-01 invoked 2026-10-22: AWAITING_APPROVAL in 25 s, Claude via AI Core, RPT-1 live, Cedar ESCALATE. The console and Joule talk to the
+Cloud Foundry API, which shares one DynamoDB case store with this runtime (#4).
+AgentCore Gateway + Policy (mapping `synapse.cedar` to the gateway's tool names) comes after.
 
 ## 4–5. AWS pipeline: done
 
@@ -79,12 +81,10 @@ Verified live 2026-10-22: `POST /demo/scenarios/SC-01/stage` changed the ERP onl
 agent, and moving the write tools behind a gateway was the riskiest change this close to the demo.
 It is the next step: the policies are already in AgentCore Policy's language (Cedar).
 
-## 6. Push the repo to GitHub
+## 6. Push the repo to GitHub: done
 
-```bash
-git remote add origin <url> && git push -u origin main
-```
-`.env` and generated files are ignored. Check `git status` shows nothing unexpected before pushing.
+Remote `origin` is `https://github.com/williamu04/synapsesupply` (first commit 2026-10-22). `.env` and
+generated files are ignored.
 
 ## 7. Team rehearsal
 

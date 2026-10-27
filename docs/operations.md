@@ -140,9 +140,9 @@ Rotate all of them after Demo Day. Never print `.env`, and never paste it into i
 | `joule login` fails with `AUTH_LOAD_FAILED` | wrong auth URL (the hackathon guide's `auisywroy…` has no OpenID discovery) | use `https://aws-sap-hackathon-si4ykj9d.authentication.ap10.hana.ondemand.com` |
 | Joule commands treated as buyer requests | Joule sends the text as a JSON string with quotes | handled by `synapse.joule.server.unwrap`; check the agent's "A2A message" log |
 | Console asks for a password | API key is set | any user name, `SYNAPSE_CF_API_KEY` as the password |
-| Console shows no cases after a redeploy | cases live in memory | wait about 20 s for the boot scenario, or click Reset demo → SC-01 |
+| Console shows no cases after a redeploy | the boot scenario resets the demo (the mock S/4 is in memory) and clears the cases | wait about 20 s for the boot scenario, or click Reset demo → SC-01 |
 | Trace says "Model unavailable — deterministic autopilot takes over" | model provider unreachable | the case still completes; check AI Core credentials and `SYNAPSE_MODEL_PROVIDERS` |
-| Log: `model provider bedrock failed (ModelThrottledException); skipping it for 300 s` | Bedrock quota is 0 | nothing to do: AI Core answers; Bedrock is retried every 5 minutes and takes over once the quota exists |
+| Log: `model provider bedrock failed (ModelThrottledException); skipping it for 300 s` | the hackathon account's Bedrock quota for Claude is zero (for now there is no Bedrock account or quota) | nothing to do: Claude runs on SAP AI Core. ModelRouter still lists Bedrock first; moving to Bedrock is a configuration change on an account with quota |
 | Log: `model provider bedrock failed (NoCredentialsError)` on Cloud Foundry | no AWS key on the app | run `scripts/cf_bedrock_credentials.sh` |
 | Bedrock `Model use case details have not been submitted` | Anthropic use-case form not done | submit it in the Bedrock console (done 2026-10-22) |
 | AWS `AccessDenied` on ECR, S3, Lambda, DynamoDB, AgentCore | organization policy denies `us-west-2` | use `--region ap-southeast-2` |

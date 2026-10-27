@@ -63,8 +63,10 @@ SC-01 to show the contrast: a small, safe fix runs alone, a large one goes to a 
   are the real hackathon tenant.
 - **"Where is AWS?"** The agent is built on the AWS Strands Agents SDK and **runs on Amazon Bedrock
   AgentCore Runtime** (Sydney), with its credentials in AWS Secrets Manager; Cedar is the policy
-  language of AgentCore Policy. Say plainly that our account's Bedrock token quota is still 0, so
-  Claude is served via SAP AI Core for now; failover is automatic (`ModelRouter`). The production
+  language of AgentCore Policy. Say plainly: the hackathon AWS account has a zero Bedrock token
+  quota for Claude, and for now there is no Bedrock account or quota, so Claude runs on
+  SAP AI Core. ModelRouter still lists Bedrock first; moving to Bedrock is a configuration change on
+  an account with quota. The production
   path runs on AWS too: an EventBridge-scheduled **Lambda** polls S/4 every minute, late deliveries
   go to an **SQS FIFO** queue, a second Lambda hands them to AgentCore, and cases and traces live in
   **DynamoDB** (shared with the console and Joule), with an audit file per case in **S3**.
@@ -76,4 +78,5 @@ SC-01 to show the contrast: a small, safe fix runs alone, a large one goes to a 
   protect the agent, and access is limited to the team's IAS group. Verified user identity
   (XSUAA/principal propagation) is future work.
 - **"Does it scale?"** Each case is independent and serialized per PO item (FIFO semantics). The
-  agent already runs on AgentCore Runtime; the missing piece is persistence (cases are in memory).
+  agent already runs on AgentCore Runtime. Cases and traces live in DynamoDB, shared by the BTP API,
+  Joule and AgentCore, with an S3 audit file per case (`docs/pending.md` #4, done 2026-10-22).

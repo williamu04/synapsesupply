@@ -86,16 +86,16 @@ sequenceDiagram
 
 | Surface | Role |
 |---|---|
-| SAP Joule (web client) | **The decision surface.** Chat plus native cards: decision `card`, options `Table`, projection `Analytical` chart, Approve/Show-status buttons. Fed by the A2A reply's data part, which carries `GET /cases/{id}/view`. |
-| Console (`ui/`, served by the API at `/console/`) | Read-only deep detail: full live trace, chart, options, replay, demo controls. Not used for decisions. Served same-origin by FastAPI on Cloud Foundry; AWS Amplify is not used. |
+| SAP Joule (web client) | **The primary decision surface.** Chat plus native cards: decision `card`, options `Table`, projection `Analytical` chart, Approve/Show-status buttons. Fed by the A2A reply's data part, which carries `GET /cases/{id}/view`. |
+| Console (`ui/`, served by the API at `/console/`) | Deep detail: full live trace, chart, options, replay, demo controls. Its Approve/Reject is the fallback decision path (same API, same Cedar check). Served same-origin by FastAPI on Cloud Foundry; AWS Amplify is not used. |
 | Joule approval card / API | Approve/reject still goes through the API and Cedar as the approver. |
 
 ## Not yet built
 
 | Planned | Status |
 |---|---|
-| Bedrock as the primary model | Code ready (`ModelRouter`); account token quota is 0 (increase requested) |
+| Bedrock as the primary model | The hackathon AWS account has a zero Bedrock token quota for Claude, and for now there is no Bedrock account or quota, so Claude runs on SAP AI Core. ModelRouter still lists Bedrock first; moving to Bedrock is a configuration change on an account with quota. |
 | AgentCore Gateway with AgentCore Policy | Cedar file ready. (AgentCore **Runtime is deployed** in ap-southeast-2, `docs/agentcore.md`) |
-| (done 2026-10-22) DynamoDB case store, S3 audit, SQS FIFO ingestion, OData poller Lambda | **Running** in ap-southeast-2 (`docs/pending.md` #4–5, `infra/synapsesupply.yaml`); cases are in memory |
+| (done 2026-10-22) DynamoDB case store, S3 audit, SQS FIFO ingestion, OData poller Lambda | **Running** in ap-southeast-2 (`docs/pending.md` #4–5, `infra/synapsesupply.yaml`); cases and traces in DynamoDB, shared by the BTP API, Joule and AgentCore |
 | Real S/4HANA | Mock uses real API names and wire format; no S/4 in the tenant |
 | Verified approver identity in Joule | Needs XSUAA / principal propagation |

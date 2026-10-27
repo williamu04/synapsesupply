@@ -4,8 +4,10 @@
 (status READY). SC-01 invoked end to end: `AWAITING_APPROVAL` in 25 s, Claude via SAP AI Core
 reasoning, SAP RPT-1 live (`sap-rpt-1.6`), Cedar ESCALATE ($8,280 > $5,000).
 The account's organization policy denies these services in `us-west-2` but **allows them in
-`ap-southeast-2` (Sydney)**, so everything runs there. Bedrock models have a zero token quota in both
-regions, so the runtime uses Claude on SAP AI Core until the quota arrives.
+`ap-southeast-2` (Sydney)**, so everything runs there. The hackathon AWS account has a zero Bedrock
+token quota for Claude, and for now there is no Bedrock account or quota, so Claude runs
+on SAP AI Core. ModelRouter still lists Bedrock first; moving to Bedrock is a configuration change on
+an account with quota.
 
 Created in `ap-southeast-2` (2026-10-22), besides the runtime:
 
@@ -81,7 +83,5 @@ them, the runtime uses Bedrock only, and the deterministic autopilot if no model
 
 - **AgentCore Gateway + Policy:** `src/synapse/policy/synapse.cedar` is the policy set. Entity and
   action names must be mapped to the names AgentCore generates for the gateway's tools.
-- **Persistence:** cases live in memory per runtime session; a DynamoDB `CaseRepository` is the
-  planned replacement (the interface is `synapse.agent.cases.CaseRepository`).
 - **Approver identity:** pass the caller's identity via `--runtime-user-id` / AgentCore Identity
   instead of the `approver` field.

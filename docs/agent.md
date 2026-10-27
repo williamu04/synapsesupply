@@ -5,7 +5,7 @@
 ```
 CaseMessage ──► CaseService.handle
                  │ PLAN: case received, SOP selected (skill router: process_type → sops/*.md)
-                 │ USER_REQUEST only: triage (Claude Haiku; rule-based if unreachable)
+                 │ USER_REQUEST only: triage (Claude Sonnet 4.6; rule-based if unreachable)
                  ▼
             Planner ── Claude Sonnet on Bedrock via Strands  (ModelRouter → SAP AI Core fallback)
                  │     └─ if the model is unreachable or ends without a decision → autopilot
@@ -131,17 +131,20 @@ the gap). Fixed at the tool: `analyze_stock_position` now returns `open_inbound`
 with the inventory position. In all three re-runs, Claude now reports a 2,600 t on-hand + 9,300 t
 inbound = 11,900 t position, above the 4,784 t reorder point.
 
+## Done since
+
+- **AgentCore Runtime deployment.** READY in `ap-southeast-2` (`docs/agentcore.md`).
+- **Persistence.** Cases and traces live in DynamoDB, with an S3 audit file per case
+  (`docs/pending.md` #4, done 2026-10-22).
+
 ## Not done yet
 
-- **AgentCore Runtime deployment.** The entry point and ARM64 image are built and tested locally
-  (`docs/agentcore.md`); deploying needs ECR and AgentCore access, which the AWS role lacks.
 - **AgentCore Gateway + Policy.** The Cedar file is ready, but entity and action names may need
   mapping to what AgentCore generates for the gateway's tools.
-- **Persistence.** `InMemoryCaseRepository` should become DynamoDB, and trace events need persisting
-  for SSE. Tracers are in memory, so a restarted service loses earlier events.
-- **Bedrock itself.** All real-model runs so far used Claude on SAP AI Core (see below). The AWS
-  account's Claude 4.x token quota is 0 (increase requested 2026-10-22); Claude 5.x is not offered to
-  this account. Re-run the eval and re-time the scenarios once Bedrock answers.
+- **Bedrock itself.** All real-model runs so far used Claude on SAP AI Core (see below). The
+  hackathon AWS account has a zero Bedrock token quota for Claude, and for now there is no Bedrock
+  account or quota, so Claude runs on SAP AI Core. ModelRouter still lists Bedrock first;
+  moving to Bedrock is a configuration change on an account with quota.
 
 SAP RPT-1 runs live against the team's AI Core: about 3 s per prediction, with the response matching
 the SAP Cloud SDK for AI's `RPTResponse` model. The empirical fallback is used only when AI Core is

@@ -127,7 +127,8 @@ cf stop synapsesupply-api-<team>
 cf push synapsesupply-api-<team> --var team=<team>
 ```
 
-Cases live in memory, so every API restart clears them. Re-run the demo scenario afterwards.
+Every API restart resets the demo: the mock S/4 is in memory, and the boot scenario clears the cases
+and stages SC-01 again. Re-run any other demo scenario afterwards.
 
 ## Limits to know before the demo
 
