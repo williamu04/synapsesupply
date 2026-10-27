@@ -65,8 +65,8 @@ a decision `card`, an options `Table` and a projection `Analytical` chart withou
 ```
 
 `compliance_state` (`Success|Warning|Error|Information`) and `outcome` (`Chosen|Rejected|Considered`)
-are precomputed so the function YAML needs no equality helpers. A case still queued returns only
-`{case_id, status: "NEW"}`.
+are precomputed so the function YAML needs no equality helpers. A case still queued returns
+`{case_id, status: "NEW", decision: null, analysis: null, options: []}`.
 
 ## Useful views for the UI
 

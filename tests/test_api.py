@@ -130,6 +130,8 @@ def test_case_view_for_joule(api):
     assert any(o["compliance"] == "HOLD" and o["compliance_state"] == "Warning" for o in view["options"])
     assert sum(o["chosen"] for o in view["options"]) == 1
     assert next(o for o in view["options"] if o["chosen"])["option_id"] == "STO:1200"
+    rejected = [o for o in view["options"] if o["outcome"] == "Rejected"]
+    assert rejected and all(o["rejected_reason"] for o in rejected)
 
 
 def test_case_view_of_a_denied_request(api):

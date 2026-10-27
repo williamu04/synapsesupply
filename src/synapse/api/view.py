@@ -51,6 +51,7 @@ def _options(record: CaseRecord, events: list[TraceEvent]) -> list[dict]:
         return []
     proposal = record.proposal
     chosen = proposal.option_id if proposal else None
+    # RejectedAlternative.description holds the alternative's option_id (see toolkit._submit).
     rejected = {a.description: a.reason for a in (proposal.alternatives if proposal else [])}
     out = []
     for option in found.get("options", [])[:MAX_OPTIONS]:
