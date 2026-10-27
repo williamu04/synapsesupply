@@ -134,7 +134,8 @@ action_groups:
                   "chartType": "Line",
                   "chartProperties": { "title": { "visible": false }, "valueAxis": { "title": { "visible": false } } },
                   "data": { "json": <? chartRows ?> },
-                  "dimensions": [ { "name": "Day", "value": "{day}" } ],
+                  "dimensions": [ { "name": "Day", "value": "{day}",
+                                    "displayValue": "{= format.dateTime(${day}, {pattern: 'MMM d', UTC: true}) }" } ],
                   "measures": [
                     { "name": "Closing", "value": "{closing}" },
                     { "name": "Safety stock", "value": "{safety}" }
