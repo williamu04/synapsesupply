@@ -43,7 +43,7 @@ When a wood-fiber delivery slips, the agent works through these steps:
 
 ```bash
 uv sync --all-extras                                     # tests import bedrock_agentcore
-uv run pytest                                            # 280 tests
+uv run pytest                                            # 281 tests
 uv run uvicorn synapse.mock_s4.app:app --port 8000       # mock S/4 on localhost:8000
 uv run python -m synapse.agent.cli all                   # run all demo scenarios end to end
 uv run uvicorn synapse.api.main:app --port 8080          # API for Joule + UI (docs/api.md)

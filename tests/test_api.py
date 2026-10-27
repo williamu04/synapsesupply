@@ -132,6 +132,18 @@ def test_case_view_for_joule(api):
     assert next(o for o in view["options"] if o["chosen"])["option_id"] == "STO:1200"
     rejected = [o for o in view["options"] if o["outcome"] == "Rejected"]
     assert rejected and all(o["rejected_reason"] for o in rejected)
+    assert view["decision"]["financial_impact_display"] == "$8,280"
+    assert view["decision"]["quantity_display"] == "920 t"
+    assert view["decision"]["compliance_display"] == "Not applicable (own plant)"
+
+
+def test_case_view_displays_for_a_supplier_po(api):
+    record = api.post("/demo/scenarios/SC-02/run?wait=true").json()
+    decision = api.get(f"/cases/{record['case_id']}/view").json()["decision"]
+    assert decision["option_id"].startswith("PO:")
+    assert decision["compliance_display"] == "PASS"
+    assert decision["financial_impact_display"] == "$2,150"
+    assert decision["quantity_display"] == "430 m³"
 
 
 def test_case_view_of_a_denied_request(api):

@@ -6,13 +6,16 @@ trace events the agent already emitted — no new persistence and no I/O.
 """
 from typing import Any
 
-from synapse.contracts import CaseRecord, TraceEvent, TraceKind
+from synapse.contracts import ActionProposal, CaseRecord, TraceEvent, TraceKind
 
 MAX_OPTIONS = 8
 
 # Compliance outcome -> UI5 Integration Card state (Success | Warning | Error | Information).
 _COMPLIANCE_STATE = {"PASS": "Success", "HOLD": "Warning", "BLOCK": "Error",
                      "NOT_APPLICABLE": "Information"}
+
+# S/4 base units -> labels, same mapping as ui/src/format.ts `unitLabel`.
+_UNIT_LABEL = {"TO": "t", "M3": "m³"}
 
 
 def _tool_result(events: list[TraceEvent], name: str) -> dict | None:
@@ -76,11 +79,25 @@ def _options(record: CaseRecord, events: list[TraceEvent]) -> list[dict]:
     return out
 
 
+def _displays(proposal: ActionProposal | None) -> dict:
+    """Preformatted strings so the Joule card YAML stays free of number formatting."""
+    if proposal is None:
+        return {"financial_impact_display": None, "quantity_display": None, "compliance_display": None}
+    own_plant = (proposal.option_id or "").startswith("STO:") or proposal.supplying_plant is not None
+    compliance = proposal.compliance_outcome.value if proposal.compliance_outcome else None
+    return {
+        "financial_impact_display": f"${proposal.financial_impact_usd:,.0f}",
+        "quantity_display": f"{proposal.quantity:,.0f} {_UNIT_LABEL.get(proposal.unit, proposal.unit)}",
+        "compliance_display": "Not applicable (own plant)" if own_plant else compliance,
+    }
+
+
 def _decision(record: CaseRecord) -> dict | None:
     proposal, policy = record.proposal, record.policy
     if proposal is None and policy is None:
         return None
     return {
+        **_displays(proposal),
         "effect": policy.effect.value if policy else None,
         "policy_ids": policy.policy_ids if policy else [],
         "reasons": policy.reasons if policy else [],
