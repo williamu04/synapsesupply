@@ -75,9 +75,9 @@ export function ProjectionChart({ analysis }: { analysis: StockAnalysis }) {
             {columns.map((c) => (
               <tr key={c.day}>
                 <td>{c.today ? "Today" : fmtDay(c.day)}</td>
-                <td className="num">{c.receipts ? fmtQty(c.receipts) : "–"}</td>
+                <td className="num">{fmtQty(c.receipts)}</td>
                 <td className="num">{fmtQty(c.closing, analysis.unit)}</td>
-                <td>{c.below ? <span className="error-text">▼ Below safety stock</span> : "OK"}</td>
+                <td>{c.below ? <span className="error-text">Below safety stock</span> : "OK"}</td>
               </tr>
             ))}
           </tbody>
@@ -105,7 +105,7 @@ export function ProjectionChart({ analysis }: { analysis: StockAnalysis }) {
                   {c.today ? "Today" : fmtDay(c.day).split(" ").slice(0, 2).join(" ")}
                 </text>
                 {c.below && (
-                  <text className="tick critical-ink" x={x(i) + barW / 2} y={H - M.bottom + 32} textAnchor="middle">▼ below</text>
+                  <text className="tick critical-ink" x={x(i) + barW / 2} y={H - M.bottom + 32} textAnchor="middle">Below</text>
                 )}
                 {(i === minIndex || c.today) && (
                   <text className="value" x={x(i) + barW / 2} y={y(Math.max(c.closing, 0)) - 8} textAnchor="middle">
@@ -127,7 +127,7 @@ export function ProjectionChart({ analysis }: { analysis: StockAnalysis }) {
               <span>Closing {fmtQty(columns[hover].closing, analysis.unit)}</span>
               {columns[hover].receipts > 0 && <span>Receipts +{fmtQty(columns[hover].receipts, analysis.unit)}</span>}
               <span className={columns[hover].below ? "error-text" : "muted"}>
-                {columns[hover].below ? `▼ ${fmtQty(ss - columns[hover].closing)} ${unit} under safety stock` : "Above safety stock"}
+                {columns[hover].below ? `${fmtQty(ss - columns[hover].closing)} ${unit} under safety stock` : "Above safety stock"}
               </span>
             </div>
           )}

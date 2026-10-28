@@ -156,7 +156,7 @@ export default function App() {
           <Header>
             {apiUp === false && <span className="chip error">API unreachable</span>}
             {apiUp && <span className="chip">{demo ? "Demo · mock S/4" : "Connected to S/4"}</span>}
-            {route.page === "replay" && <span className="chip warn">⏵ Replay</span>}
+            {route.page === "replay" && <span className="chip warn">Replay</span>}
           </Header>
         )}
         {error && route.page !== "plan" && <p className="error-banner" role="alert">{error}</p>}

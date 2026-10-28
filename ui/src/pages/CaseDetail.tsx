@@ -46,7 +46,7 @@ export function CaseDetail({ label, replay, record, view, events, status, stream
   const approver = record?.approver ?? (view.approval?.outcome === "APPROVED" ? view.approval.approver : null);
   const pill = statusPill({ status: status as CaseRecord["status"], approver });
   const extra: Stat[] = [
-    { label: "Time to decision", value: ttd === null ? "–" : fmtDuration(ttd), sub: `vs ~${MANUAL_BASELINE_MIN} min manual` },
+    { label: "Time to decision", value: ttd === null ? "Pending" : fmtDuration(ttd), sub: `vs ~${MANUAL_BASELINE_MIN} min manual` },
     ...(sapDocument ? [{ label: "S/4 Document", value: sapDocument }] : []),
   ];
 
@@ -60,13 +60,13 @@ export function CaseDetail({ label, replay, record, view, events, status, stream
               {headline(view) ?? (record ? caseTitle(record) : replay ? "Loading the recorded run…" : "Waiting for the agent…")}
             </h1>
             {Boolean(view.details?.carrier_notice) && (
-              <p><strong>Carrier notice:</strong> {String(view.details?.carrier_notice)}</p>
+              <p><strong>Carrier notice:</strong> {inlineBold(String(view.details?.carrier_notice))}</p>
             )}
             {view.summary && <p>{inlineBold(view.summary)}</p>}
             <div className="chips">
               {view.modelFallback && <span className="chip warn">Model unavailable: autopilot</span>}
               {view.degraded && <span className="chip warn">S/4 unreachable: mock ERP fallback</span>}
-              {streaming && <span className="live-dot">● live</span>}
+              {streaming && <span className="live-dot">Live</span>}
             </div>
           </div>
           {record ? <CaseStats record={record} extra={extra} />

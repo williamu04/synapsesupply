@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { inlineBold } from "../inline";
+import { plainText } from "../plainText";
 import type { TraceEvent } from "../types";
 
 function label(e: TraceEvent): string {
   if (e.kind === "TOOL_CALL") return `Calls ${e.title}`;
   if (e.kind === "TOOL_RESULT") return `${e.title} returned`;
-  return e.title;
+  return plainText(e.title);
 }
 
 /** "Agent Trace": one row per event (kind, what happened, time since start); a row opens its raw detail. */
@@ -21,7 +22,7 @@ export function Timeline({ events, live }: { events: TraceEvent[]; live: boolean
     <section className="panel" aria-labelledby="trace-title">
       <div className="panel-text">
         <h2 className="panel-title" id="trace-title">
-          Agent Trace {live && <span className="live-dot" aria-label="live">● live</span>}
+          Agent Trace {live && <span className="live-dot">Live</span>}
         </h2>
       </div>
       <ol className="inset timeline">

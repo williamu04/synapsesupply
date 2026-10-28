@@ -72,7 +72,7 @@ export function PlanPage({ onAsk, demo, scenarios, onRunScenario, recordings, on
                 <h2 className="nav-heading">Replay a recorded run</h2>
                 <ul className="templates">
                   {recordings.map((name) => (
-                    <li key={name}><button className="template" onClick={() => onReplay(name)}>⏵ {name}</button></li>
+                    <li key={name}><button className="template" onClick={() => onReplay(name)}>{name}</button></li>
                   ))}
                 </ul>
               </section>

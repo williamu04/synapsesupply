@@ -1,6 +1,7 @@
 // How a case record maps onto the console's list cards: which lane it belongs to, its title, its
 // status pill and its action. Pure and unit-tested.
-import { fmtQty } from "./format";
+import { fmtDay, fmtQty, fmtUsdCode } from "./format";
+import { plainText } from "./plainText";
 import type { CaseRecord } from "./types";
 
 /** "escalation": Cedar sent it to a human (ESCALATE) or refused it (DENY); everything else ran alone. */
@@ -65,7 +66,7 @@ export function approverRow(c: Pick<CaseRecord, "status" | "approver" | "policy"
   switch (c.status) {
     case "AWAITING_APPROVAL": return { who: "SAP Joule or console", role: "Supply planner", pill };
     case "EXECUTED": return c.approver ? { who: c.approver, role: "Supply planner", pill } : null;
-    case "REJECTED": return { who: c.approver ?? "–", role: "Supply planner", pill };
+    case "REJECTED": return { who: c.approver ?? "Unknown", role: "Supply planner", pill };
     case "BLOCKED": return { who: "Not permitted for anyone", role: c.policy?.policy_ids.join(", ") ?? "Cedar", pill };
     default: return null;
   }
@@ -77,6 +78,27 @@ const ACTION: Record<string, string> = {
   RESCHEDULE_PO_LINE: "Reschedule PO",
   NOTIFY_ONLY: "Notify only",
 };
+
+/** The card's one-line description: what the agent proposed and where it stands, from the record's
+ *  fields (the model's summary runs to paragraphs). Without a proposal, the summary's first sentence. */
+export function cardSummary(c: Pick<CaseRecord, "proposal" | "status" | "approver" | "sap_document" | "summary">): string {
+  const p = c.proposal;
+  if (!p) {
+    const text = plainText(c.summary).replace(/\*\*/g, "").replace(/^[-#>\s]+/gm, "").replace(/\s+/g, " ");
+    return text.match(/^.*?[.!?](?=\s|$)/)?.[0] ?? text;
+  }
+  const from = p.supplying_plant ? ` from plant ${p.supplying_plant}` : p.supplier ? ` from supplier ${p.supplier}` : "";
+  const what = `${ACTION[p.action_type] ?? p.action_type} of ${fmtQty(p.quantity, p.unit)}${from}, arriving `
+    + `${fmtDay(p.delivery_date)}, ${fmtUsdCode(p.financial_impact_usd)} incremental.`;
+  const doc = c.sap_document ? ` S/4 document ${c.sap_document}.` : "";
+  switch (c.status) {
+    case "EXECUTED": return `${what} ${c.approver ? `Approved by ${c.approver}.` : "Executed autonomously."}${doc}`;
+    case "AWAITING_APPROVAL": return `${what} Waiting for a planner's approval.`;
+    case "BLOCKED": return `${what} Blocked by Cedar; no one may approve it.`;
+    case "REJECTED": return `${what} Rejected by ${c.approver ?? "a planner"}.`;
+    default: return what;
+  }
+}
 
 export function actionLabel(c: Pick<CaseRecord, "proposal">): string {
   const p = c.proposal;

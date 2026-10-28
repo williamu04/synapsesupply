@@ -1,4 +1,5 @@
 import type { Pill } from "../caseSummary";
+import { plainText } from "../plainText";
 import type { PolicyEffect } from "../types";
 import { StatusPill } from "./StatusPill";
 
@@ -9,7 +10,7 @@ export function EscalationBox({ effect, reasons, pill }: { effect: PolicyEffect;
     <div className="escalation-box">
       <div className="escalation-text">
         <p>{met ? "Escalation condition met:" : "Escalation condition not met:"}</p>
-        {reasons.map((r) => <p key={r} className={met ? "reason-met" : ""}>{r}</p>)}
+        {reasons.map((r) => <p key={r} className={met ? "reason-met" : ""}>{plainText(r)}</p>)}
       </div>
       <StatusPill {...pill} />
     </div>

@@ -11,8 +11,8 @@ export function CaseStats({ record, extra = [] }: { record: CaseRecord; extra?: 
     <Stats items={[
       { label: "Issue ID", value: record.case_id, sub: sourceLabel(record.payload_source) },
       { label: "Date", value: date, sub: time },
-      { label: "Affected Object", value: record.material ?? "–", sub: record.plant ? `plant ${record.plant}` : undefined },
-      { label: "Estimated Cost", value: cost === undefined ? "–" : fmtUsdCode(cost) },
+      { label: "Affected Object", value: record.material ?? "Not specified", sub: record.plant ? `plant ${record.plant}` : undefined },
+      { label: "Estimated Cost", value: cost === undefined ? "None" : fmtUsdCode(cost) },
       { label: "Status", value: statusPill(record).label },
       { label: "Action", value: actionLabel(record) },
       ...extra,

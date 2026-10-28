@@ -1,9 +1,10 @@
 import { fmtDay, fmtQty, fmtUsd } from "../format";
+import { plainText } from "../plainText";
 import type { PolicyEffect, SourcingResult } from "../types";
 import { ComplianceBadge } from "./ComplianceBadge";
 
 const SUBMITTED = {
-  ALLOW: ["chosen", "★ Chosen"], ESCALATE: ["chosen", "★ Proposed"], DENY: ["denied", "⛔ Requested · denied"],
+  ALLOW: ["chosen", "Chosen"], ESCALATE: ["chosen", "Proposed"], DENY: ["denied", "Requested, denied"],
 } as const;
 
 export function OptionsTable({ sourcing, chosen, effect, approved, rejected, unit }: {
@@ -54,23 +55,23 @@ export function OptionsTable({ sourcing, chosen, effect, approved, rejected, uni
                   <td className="arrives">
                     {fmtDay(o.earliest_arrival)}
                     <div className={`small ${o.arrives_in_time ? "muted" : "status serious"}`}>
-                      {o.arrives_in_time ? "✓ in time" : "✗ too late"}
+                      {o.arrives_in_time ? "In time" : "Too late"}
                     </div>
                     {o.on_time_probability !== undefined && (
                       <div className={`small ${o.on_time_probability < 0.5 ? "status serious" : "muted"}`}
                            title={`Expected delay ${o.predicted_delay_days} days (${o.prediction_method})`}>
-                        {o.on_time_probability < 0.5 ? "⚠ " : ""}{Math.round(o.on_time_probability * 100)}% on time
+                        {Math.round(o.on_time_probability * 100)}% on time
                       </div>
                     )}
                   </td>
                   <td>
                     <ComplianceBadge value={o.compliance} />
-                    {o.compliance_findings.map((f) => <div key={f} className="muted small finding">{f}</div>)}
+                    {o.compliance_findings.map((f) => <div key={f} className="muted small finding">{plainText(f)}</div>)}
                   </td>
                   <td className="num">{fmtUsd(o.incremental_cost_for_quantity)}</td>
                   <td>
-                    {isChosen ? <span className={`tag ${effect === "DENY" ? "tag-denied" : ""}`}>{approved ? "★ Chosen · approved" : SUBMITTED[effect ?? "ALLOW"][1]}</span>
-                      : <span className="muted small">{rejected[o.option_id] || "–"}</span>}
+                    {isChosen ? <span className={`tag ${effect === "DENY" ? "tag-denied" : ""}`}>{approved ? "Chosen, approved" : SUBMITTED[effect ?? "ALLOW"][1]}</span>
+                      : <span className="muted small">{plainText(rejected[o.option_id] || "Not selected")}</span>}
                   </td>
                 </tr>
               );

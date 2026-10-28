@@ -103,9 +103,13 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .panel > .panel-text { padding: 0 12px; }
 .panel-text, .issue-text { display: flex; flex-direction: column; gap: 10px; }
 .panel-title { font-size: 22px; line-height: 28px; font-weight: 700; letter-spacing: 0; color: var(--primary); }
+/* The whole list card is the link: the title's button stretches over the card. */
+.issue-card, .escalated-card { position: relative; transition: background 120ms; }
+.issue-card:hover, .escalated-card:hover { background: var(--md-sys-color-surface-container-high); }
 .card-link { all: unset; cursor: pointer; }
-.card-link:hover { text-decoration: underline; }
-.card-link:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.card-link::after { content: ""; position: absolute; inset: 0; border-radius: 16px; }
+.card-link:focus-visible { outline: none; }
+.card-link:focus-visible::after { outline: 2px solid var(--primary); outline-offset: 2px; }
 .clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .issue-card .issue-text { gap: 12px; }
 
@@ -132,7 +136,9 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   color: var(--ink-variant); }
 .chip.warn { border-color: var(--app-warning); color: var(--ink); }
 .chip.error { border-color: var(--error); color: var(--error); }
-.live-dot { color: var(--error); font-size: 12px; font-weight: 500; animation: pulse 1.4s infinite; }
+.live-dot { display: inline-flex; align-items: center; gap: 6px; color: var(--error); font-size: 12px;
+  font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; vertical-align: middle; animation: pulse 1.4s infinite; }
+.live-dot::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 @keyframes pulse { 50% { opacity: 0.35; } }
 @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
 

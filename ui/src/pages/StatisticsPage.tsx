@@ -30,7 +30,7 @@ export function StatisticsPage({ cases, onPlan }: { cases: CaseRecord[]; onPlan:
         </div>
         <div className="stats-hero-row">
           <div className="hero-figure">
-            <span className="hero-value">{rate === null ? "–" : `${rate}%`}</span>
+            <span className="hero-value">{rate === null ? "N/A" : `${rate}%`}</span>
             <span className="tile-label">decided without a human</span>
             <span className="tile-sub">{autonomous} of {decided} decided {decided === 1 ? "case" : "cases"}</span>
           </div>

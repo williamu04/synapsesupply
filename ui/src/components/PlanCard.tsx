@@ -14,7 +14,7 @@ export function PlanCard({ planner, policy }: { planner: string | null; policy: 
     <section className="inset plan-card" aria-labelledby="plan-title">
       <div className="plan-by">
         <p id="plan-title" className="muted">Planned By</p>
-        <strong>{planner === "llm" ? "Claude" : planner ? "Autopilot (fallback)" : "–"}</strong>
+        <strong>{planner === "llm" ? "Claude" : planner ? "Autopilot (fallback)" : "Pending"}</strong>
       </div>
       <dl className="plan-figures">
         <div>
