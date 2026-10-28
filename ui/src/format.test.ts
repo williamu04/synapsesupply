@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fmtCompact, fmtDay, fmtDuration, fmtQty, fmtUsd, niceTicks, unitLabel } from "./format";
+import { fmtDay, fmtDuration, fmtQty, fmtUsd, niceTicks, unitLabel } from "./format";
 
 describe("format", () => {
   it("formats money, quantities and units", () => {
@@ -7,14 +7,6 @@ describe("format", () => {
     expect(fmtQty(1195.8, "TO")).toBe("1,196 t");
     expect(fmtQty(430, "M3")).toBe("430 m³");
     expect(unitLabel("KG")).toBe("KG");
-  });
-
-  it("compacts axis values", () => {
-    expect(fmtCompact(0)).toBe("0");
-    expect(fmtCompact(500)).toBe("500");
-    expect(fmtCompact(1000)).toBe("1K");
-    expect(fmtCompact(1500)).toBe("1.5K");
-    expect(fmtCompact(-1250)).toBe("-1.2K");
   });
 
   it("formats business days without timezone drift", () => {

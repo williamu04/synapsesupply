@@ -1,6 +1,6 @@
 import { fmtDay, fmtQty, fmtUsd } from "../format";
 import type { PolicyEffect, SourcingResult } from "../types";
-import { ComplianceBadge } from "./DecisionCard";
+import { ComplianceBadge } from "./ComplianceBadge";
 
 const SUBMITTED = {
   ALLOW: ["chosen", "★ Chosen"], ESCALATE: ["chosen", "★ Proposed"], DENY: ["denied", "⛔ Requested · denied"],
@@ -15,26 +15,28 @@ export function OptionsTable({ sourcing, chosen, effect, approved, rejected, uni
   unit: string;
 }) {
   return (
-    <section className="card" aria-labelledby="options-title">
-      <h3 id="options-title">Sourcing options</h3>
-      <p className="muted">
-        {fmtQty(sourcing.quantity, unit)} needed at plant {sourcing.plant} by {fmtDay(sourcing.needed_by)} ·
-        incremental cost vs. a baseline price of {fmtUsd(sourcing.baseline_price)} per unit
-      </p>
-      {sourcing.delay_prediction?.method && (
-        <p className="muted small">
-          On-time probability: {sourcing.delay_prediction.method === "sap-rpt-1.6"
-            ? "predicted by SAP RPT-1"
-            : `${sourcing.delay_prediction.method} estimate`} from {sourcing.delay_prediction.history_rows} past
-          deliveries in S/4
+    <section className="panel" aria-labelledby="options-title">
+      <div className="panel-text">
+        <h2 className="panel-title" id="options-title">Sourcing Options</h2>
+        <p>
+          {fmtQty(sourcing.quantity, unit)} needed at plant {sourcing.plant} by {fmtDay(sourcing.needed_by)} ·
+          incremental cost vs. a baseline price of {fmtUsd(sourcing.baseline_price)} per unit
         </p>
-      )}
-      <div className="table-scroll">
+        {sourcing.delay_prediction?.method && (
+          <p className="muted small">
+            On-time probability: {sourcing.delay_prediction.method === "sap-rpt-1.6"
+              ? "predicted by SAP RPT-1"
+              : `${sourcing.delay_prediction.method} estimate`} from {sourcing.delay_prediction.history_rows} past
+            deliveries in S/4
+          </p>
+        )}
+      </div>
+      <div className="inset table-scroll">
         <table className="data">
           <thead>
             <tr>
               <th>Option</th><th>Arrives</th><th>Compliance</th>
-              <th className="num">Incremental cost</th><th>Agent's verdict</th>
+              <th className="num">Cost</th><th>Verdict</th>
             </tr>
           </thead>
           <tbody>

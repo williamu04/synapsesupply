@@ -205,6 +205,19 @@ def test_recording_replay(client, tmp_path):
     assert api.get("/recordings/sc02?speed=0").status_code == 422
 
 
+def test_recordings_are_utf8_whatever_the_os_default(client):
+    """The shipped recordings hold UTF-8 text (e.g. "—" in Claude's reasoning). On Windows the default
+    codepage is cp1252, which crashed the replay endpoint: the stage fallback on a Windows laptop."""
+    from pathlib import Path
+
+    from synapse.agent.trace import load_recording
+
+    recordings = Path(__file__).parents[1] / "recordings"
+    assert any("—" in p.read_text(encoding="utf-8") for p in recordings.glob("*.jsonl"))
+    for path in recordings.glob("*.jsonl"):
+        assert load_recording(path)[-1].kind.value == "DONE"
+
+
 def test_browser_basic_auth_for_console_and_api(client, tmp_path):
     import base64
     (tmp_path / "index.html").write_text("<!doctype html><title>SynapseSupply</title>")
