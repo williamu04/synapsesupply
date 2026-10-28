@@ -23,6 +23,8 @@ export function Sidebar({ active, onNavigate, approvals, openCaseId, onOpenCase,
 }) {
   return (
     <aside className="sidebar">
+      {/* The column runs the page's full height; its content stays pinned to the viewport. */}
+      <div className="sidebar-inner">
       <div className="brand">SynSupply</div>
       <nav className="sidebar-body" aria-label="Console">
         <ul className="nav">
@@ -59,6 +61,7 @@ export function Sidebar({ active, onNavigate, approvals, openCaseId, onOpenCase,
           <span className="profile-role">Admin</span>
         </div>
         <ThemeMenu pref={theme} onChange={onThemeChange} />
+      </div>
       </div>
     </aside>
   );
