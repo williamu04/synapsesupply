@@ -2,14 +2,14 @@
 // One series (no legend; the title names it). Days below safety stock use the reserved critical
 // status color AND carry an icon + label, so state never rides on color alone.
 import { useState } from "react";
-import { fmtCompact, fmtDay, fmtQty, niceTicks, unitLabel } from "../format";
+import { fmtDay, fmtQty, niceTicks, unitLabel } from "../format";
 import type { StockAnalysis } from "../types";
 
 const W = 640;
 const H = 260;
 const M = { top: 28, right: 112, bottom: 48, left: 48 };
-const BAR_MAX = 24;
-const R = 4;
+const BAR_MAX = 48;
+const R = 0;  // the design's bars are square
 
 interface Column { day: string; closing: number; receipts: number; below: boolean; today: boolean }
 
@@ -45,28 +45,29 @@ export function ProjectionChart({ analysis }: { analysis: StockAnalysis }) {
   const plotH = H - M.top - M.bottom;
   const y = (v: number) => M.top + plotH - ((v - lo) / (hi - lo)) * plotH;
   const band = plotW / columns.length;
-  const barW = Math.min(BAR_MAX, band * 0.55);
+  const barW = Math.min(BAR_MAX, band * 0.7);
   const x = (i: number) => M.left + band * i + (band - barW) / 2;
   const minIndex = values.indexOf(Math.min(...values.slice(1)));
   const breach = analysis.first_breach_day;
 
   const title = `Projected ${analysis.material} stock at plant ${analysis.plant}`;
   return (
-    <figure className="viz" aria-labelledby="proj-title">
-      <figcaption className="viz-head">
-        <div>
-          <h3 id="proj-title">{title}</h3>
-          <p className="muted">
+    <section className="panel" aria-labelledby="proj-title">
+      <div className="panel-head">
+        <div className="panel-text">
+          <h2 className="panel-title" id="proj-title">{title}</h2>
+          <p>
             Closing stock per day, next 7 days · unrestricted stock only
             {analysis.other_stock_not_available > 0 &&
               ` (${fmtQty(analysis.other_stock_not_available, analysis.unit)} in quality inspection excluded)`}
           </p>
         </div>
-        <button className="link" onClick={() => setAsTable((t) => !t)} aria-pressed={asTable}>
+        <button className="btn btn-text" onClick={() => setAsTable((t) => !t)} aria-pressed={asTable}>
           {asTable ? "Chart" : "Table"}
         </button>
-      </figcaption>
+      </div>
 
+      <div className="inset viz">
       {asTable ? (
         <table className="data">
           <thead><tr><th>Day</th><th className="num">Receipts</th><th className="num">Closing</th><th>Status</th></tr></thead>
@@ -76,7 +77,7 @@ export function ProjectionChart({ analysis }: { analysis: StockAnalysis }) {
                 <td>{c.today ? "Today" : fmtDay(c.day)}</td>
                 <td className="num">{c.receipts ? fmtQty(c.receipts) : "–"}</td>
                 <td className="num">{fmtQty(c.closing, analysis.unit)}</td>
-                <td>{c.below ? <span className="status critical">▼ Below safety stock</span> : "OK"}</td>
+                <td>{c.below ? <span className="error-text">▼ Below safety stock</span> : "OK"}</td>
               </tr>
             ))}
           </tbody>
@@ -89,7 +90,7 @@ export function ProjectionChart({ analysis }: { analysis: StockAnalysis }) {
             {ticks.map((t) => (
               <g key={t}>
                 <line className="gridline" x1={M.left} x2={W - M.right} y1={y(t)} y2={y(t)} />
-                <text className="tick" x={M.left - 8} y={y(t)} dy="0.32em" textAnchor="end">{fmtCompact(t)}</text>
+                <text className="tick" x={M.left - 8} y={y(t)} dy="0.32em" textAnchor="end">{fmtQty(t)}</text>
               </g>
             ))}
             <line className="baseline" x1={M.left} x2={W - M.right} y1={y(0)} y2={y(0)} />
@@ -108,7 +109,7 @@ export function ProjectionChart({ analysis }: { analysis: StockAnalysis }) {
                 )}
                 {(i === minIndex || c.today) && (
                   <text className="value" x={x(i) + barW / 2} y={y(Math.max(c.closing, 0)) - 8} textAnchor="middle">
-                    {fmtCompact(Math.round(c.closing))}
+                    {fmtQty(Math.round(c.closing))}
                   </text>
                 )}
               </g>
@@ -125,13 +126,14 @@ export function ProjectionChart({ analysis }: { analysis: StockAnalysis }) {
               <strong>{columns[hover].today ? "Today (on hand)" : fmtDay(columns[hover].day)}</strong>
               <span>Closing {fmtQty(columns[hover].closing, analysis.unit)}</span>
               {columns[hover].receipts > 0 && <span>Receipts +{fmtQty(columns[hover].receipts, analysis.unit)}</span>}
-              <span className={columns[hover].below ? "status critical" : "muted"}>
+              <span className={columns[hover].below ? "error-text" : "muted"}>
                 {columns[hover].below ? `▼ ${fmtQty(ss - columns[hover].closing)} ${unit} under safety stock` : "Above safety stock"}
               </span>
             </div>
           )}
         </div>
       )}
-    </figure>
+      </div>
+    </section>
   );
 }

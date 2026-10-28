@@ -10,6 +10,11 @@ function url(path: string): string {
   return `${BASE}${path}${path.includes("?") ? "&" : "?"}api_key=${encodeURIComponent(KEY)}`;
 }
 
+/** A non-2xx API reply; `status` lets the console tell "no such case" (404) from a failure. */
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) { super(message); }
+}
+
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url(path), {
     ...init,
@@ -17,7 +22,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail ?? `${res.status} ${res.statusText}`);
+    throw new ApiError(body.detail ?? `${res.status} ${res.statusText}`, res.status);
   }
   return res.json() as Promise<T>;
 }
