@@ -1,6 +1,6 @@
 // "Plan": ask the agent in plain language (the same /requests path SAP Joule uses), plus the demo
 // controls the stage script relies on: trigger a scenario, replay a recorded run, reset.
-import { useRef, useState, type FormEvent } from "react";
+import { useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import type { Scenario } from "../types";
 
 // Requests tested against the live system: DENY (Siak), ESCALATE (Kampar, over $5,000), options only.
@@ -22,7 +22,13 @@ export function PlanPage({ onAsk, demo, scenarios, onRunScenario, recordings, on
 }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
-  const input = useRef<HTMLInputElement>(null);
+  const input = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {  // fit the textarea to its text (CSS caps it at three lines)
+    const el = input.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [text]);
 
   async function submit(ev: FormEvent) {
     ev.preventDefault();
@@ -36,8 +42,15 @@ export function PlanPage({ onAsk, demo, scenarios, onRunScenario, recordings, on
       <h1 className="wordmark plan-title"><strong>SynapseSupply</strong> Console</h1>
       <div className="plan-body">
         <form className="ask" onSubmit={submit}>
-          <input ref={input} value={text} onChange={(e) => setText(e.target.value)} placeholder="Ask SynapseSupply"
-                 aria-label="Ask SynapseSupply" />
+          {/* Grows to three lines so a long request stays readable; Enter sends, Shift+Enter breaks. */}
+          <textarea ref={input} rows={1} value={text} onChange={(e) => setText(e.target.value)}
+                    placeholder="Ask SynapseSupply" aria-label="Ask SynapseSupply"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                        e.preventDefault();
+                        e.currentTarget.form?.requestSubmit();
+                      }
+                    }} />
           <button type="submit" className="ask-send" disabled={!text.trim() || busy} aria-label="Send request">
             <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden><path d="M4 12l16-8-6 16-2-7-8-1z" /></svg>
           </button>

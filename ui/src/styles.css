@@ -121,12 +121,12 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .stat dd { margin: 0; display: flex; flex-wrap: wrap; gap: 0 10px; color: var(--secondary); max-width: 28ch; }
 .stat dd strong { letter-spacing: 0.1px; }
 
-/* status pill (Figma "Status"): 11/16 medium, 4px dot */
+/* status pill (Figma "Status"): 11/16 medium, label centered */
 .pill {
-  display: inline-flex; align-items: center; gap: 8px; min-width: 92px; padding: 4px 8px; border-radius: 12px;
-  font-size: 11px; line-height: 16px; font-weight: 500; letter-spacing: 0; white-space: nowrap; width: fit-content;
+  display: inline-flex; align-items: center; justify-content: center; min-width: 92px; padding: 4px 8px;
+  border-radius: 12px; font-size: 11px; line-height: 16px; font-weight: 500; letter-spacing: 0; white-space: nowrap;
+  width: fit-content;
 }
-.pill-dot { width: 4px; height: 4px; border-radius: 50%; background: currentColor; flex: none; }
 .pill-success { background: var(--app-success); color: var(--app-on-success); }
 .pill-warning { background: var(--app-warning); color: var(--app-on-warning); }
 .pill-error { background: var(--error); color: var(--md-sys-color-on-error); }
@@ -201,11 +201,14 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .plan { min-height: calc(100vh - 52px); display: flex; flex-direction: column; align-items: center;
   justify-content: center; gap: 32px; padding: 24px 12px; }
 .plan-body { width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 16px; }
-.ask { display: flex; align-items: center; border-radius: 100px; padding: 0 12px 0 24px;
+/* 24px radius = a full pill at one line (48px) and a rounded box at three; the send button sits on
+   the last line. */
+.ask { display: flex; align-items: flex-end; gap: 8px; border-radius: 24px; padding: 0 12px 4px 24px;
   background: var(--md-sys-color-surface-container-highest); }
-.ask input { flex: 1; min-width: 0; border: none; background: none; padding: 12px 0; font-size: 16px;
-  letter-spacing: 0; outline: none; }
-.ask input::placeholder { color: var(--ink); opacity: 1; }
+.ask textarea { flex: 1; min-width: 0; border: none; background: none; padding: 12px 0 8px; margin: 0;
+  font: inherit; font-size: 16px; line-height: 24px; letter-spacing: 0; color: inherit; outline: none;
+  resize: none; max-height: 84px; overflow-y: auto; }
+.ask textarea::placeholder { color: var(--ink); opacity: 1; }
 .ask:focus-within { outline: 2px solid var(--primary); }
 .ask-send { display: grid; place-items: center; width: 40px; height: 40px; border: none; border-radius: 50%;
   background: none; color: var(--ink); }
@@ -269,7 +272,19 @@ td.arrives { white-space: nowrap; }
 .ev-row:hover { background: var(--md-sys-color-surface-container-low); }
 .ev-kind { width: 132px; flex: none; font-weight: 700; letter-spacing: 0.1px; color: var(--tertiary); }
 .ev-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.ev-text { color: var(--ink-variant); white-space: pre-wrap; }
+.ev-text { color: var(--ink-variant); }
+.ev-row { cursor: pointer; }
+.ev-row:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+
+/* Claude's replies: paragraphs, bullet lists, bold and code */
+.model-text { display: flex; flex-direction: column; gap: 8px; }
+.model-text ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 2px; }
+.model-text code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 0.92em;
+  padding: 0 4px; border-radius: 4px; background: var(--md-sys-color-surface-container-high); }
+.summary { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.model-text.collapsed { max-height: 60px; overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent); mask-image: linear-gradient(to bottom, #000 60%, transparent); }
+.summary-toggle { padding: 2px 0; }
 .ev-time { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ev-error .ev-kind { color: var(--error); }
 .ev-policy .ev-title, .ev-action .ev-title, .ev-done .ev-title { font-weight: 700; }

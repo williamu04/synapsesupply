@@ -5,7 +5,7 @@ const COMPLIANCE: Record<string, Pill> = {
   PASS: { tone: "success", label: "PASS" },
   HOLD: { tone: "warning", label: "HOLD" },
   BLOCK: { tone: "error", label: "BLOCK" },
-  NOT_APPLICABLE: { tone: "neutral", label: "Own plant" },
+  NOT_APPLICABLE: { tone: "neutral", label: "OWN PLANT" },
 };
 
 /** EUDR gate outcome as a status pill. */

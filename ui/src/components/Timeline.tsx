@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { inlineBold } from "../inline";
 import { plainText } from "../plainText";
+import { ModelText } from "./ModelText";
 import type { TraceEvent } from "../types";
 
 function label(e: TraceEvent): string {
@@ -31,15 +31,21 @@ export function Timeline({ events, live }: { events: TraceEvent[]; live: boolean
         )}
         {events.map((e) => (
           <li key={e.seq} className={`ev ev-${e.kind.toLowerCase()}`}>
-            <button className="ev-row" onClick={() => setOpen(open === e.seq ? null : e.seq)}
-                    aria-expanded={open === e.seq}>
+            {/* A div with button semantics: the reasoning text holds paragraphs and lists, which a
+                <button> may not contain. */}
+            <div className="ev-row" role="button" tabIndex={0} aria-expanded={open === e.seq}
+                 onClick={() => setOpen(open === e.seq ? null : e.seq)}
+                 onKeyDown={(k) => {
+                   if (k.key === "Enter" || k.key === " ") { k.preventDefault(); setOpen(open === e.seq ? null : e.seq); }
+                 }}>
               <span className="ev-kind">{e.kind.replace("_", " ")}</span>
-              <span className="ev-body">
-                <span className="ev-title">{label(e)}</span>
-                {e.kind === "REASONING" && <span className="ev-text">{inlineBold(String(e.detail.text ?? ""))}</span>}
-              </span>
+              <div className="ev-body">
+                {/* Reasoning events are all titled "Agent"; the text says what the agent thought. */}
+                {!(e.kind === "REASONING" && e.title === "Agent") && <span className="ev-title">{label(e)}</span>}
+                {e.kind === "REASONING" && <ModelText className="ev-text" text={String(e.detail.text ?? "")} />}
+              </div>
               <span className="ev-time">+{((Date.parse(e.ts) - t0) / 1000).toFixed(1)}s</span>
-            </button>
+            </div>
             {open === e.seq && <pre className="ev-detail">{JSON.stringify(e.detail, null, 2)}</pre>}
           </li>
         ))}

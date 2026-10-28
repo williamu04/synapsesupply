@@ -1,5 +1,6 @@
 // One case as the design's report: overview, decision (approval / plan / Cedar), stock chart, sourcing
 // options and the live agent trace. Also renders replays, which have a trace but no case record.
+import { useState } from "react";
 import { approverRow, caseTitle, statusPill } from "../caseSummary";
 import { timeToDecision, type CaseView } from "../caseView";
 import { ApprovalCard } from "../components/ApprovalCard";
@@ -11,6 +12,7 @@ import { PolicyCard } from "../components/PolicyCard";
 import { ProjectionChart } from "../components/ProjectionChart";
 import { Stats, type Stat } from "../components/Stats";
 import { PendingPanel } from "../components/PendingPanel";
+import { ModelText } from "../components/ModelText";
 import { Timeline } from "../components/Timeline";
 import { fmtDuration } from "../format";
 import { inlineBold } from "../inline";
@@ -41,6 +43,10 @@ export function CaseDetail({ label, replay, record, view, events, status, stream
   onReject: (approver: string, reason: string) => Promise<void>;
 }) {
   const ttd = timeToDecision(view);
+  // Claude's summary can run to a dozen lines (and repeats as the trace's last reasoning): show three.
+  const [openSummaryFor, setOpenSummaryFor] = useState<string | null>(null);
+  const summaryOpen = openSummaryFor === label;
+  const longSummary = (view.summary?.length ?? 0) > 260 || (view.summary ?? "").includes("\n");
   const finished = FINAL_STATUSES.has(status) || status === "AWAITING_APPROVAL";
   const sapDocument = record?.sap_document ?? view.sapDocument;
   const approver = record?.approver ?? (view.approval?.outcome === "APPROVED" ? view.approval.approver : null);
@@ -62,7 +68,17 @@ export function CaseDetail({ label, replay, record, view, events, status, stream
             {Boolean(view.details?.carrier_notice) && (
               <p><strong>Carrier notice:</strong> {inlineBold(String(view.details?.carrier_notice))}</p>
             )}
-            {view.summary && <p>{inlineBold(view.summary)}</p>}
+            {view.summary && (
+              <div className="summary">
+                <ModelText text={view.summary} className={summaryOpen || !longSummary ? "" : "collapsed"} />
+                {longSummary && (
+                  <button className="btn btn-text summary-toggle" aria-expanded={summaryOpen}
+                          onClick={() => setOpenSummaryFor(summaryOpen ? null : label)}>
+                    {summaryOpen ? "Show less" : "Show full summary"}
+                  </button>
+                )}
+              </div>
+            )}
             <div className="chips">
               {view.modelFallback && <span className="chip warn">Model unavailable: autopilot</span>}
               {view.degraded && <span className="chip warn">S/4 unreachable: mock ERP fallback</span>}

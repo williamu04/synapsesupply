@@ -14,3 +14,10 @@ export function inlineBold(text: string): ReactNode[] {
   });
   return out.filter((n) => n !== "");
 }
+
+/** inlineBold plus `code` spans: Claude quotes option ids in backticks (`PO:0000100004`). */
+export function inlineMarks(text: string): ReactNode[] {
+  return text.split(/`([^`\n]+)`/).flatMap((part, i) =>
+    i % 2 === 1 ? [<code key={`c${i}`}>{part}</code>]
+      : inlineBold(part).map((n, j) => (typeof n === "string" ? n : <span key={`b${i}-${j}`}>{n}</span>)));
+}
