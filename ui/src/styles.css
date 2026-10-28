@@ -137,6 +137,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   color: var(--ink-variant); }
 .chip.warn { border-color: var(--app-warning); color: var(--ink); }
 .chip.error { border-color: var(--error); color: var(--error); }
+.panel-title .live-dot { margin-left: 10px; }
 .live-dot { display: inline-flex; align-items: center; gap: 6px; color: var(--error); font-size: 12px;
   font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; vertical-align: middle; animation: pulse 1.4s infinite; }
 .live-dot::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
@@ -201,11 +202,11 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .plan { min-height: calc(100vh - 52px); display: flex; flex-direction: column; align-items: center;
   justify-content: center; gap: 32px; padding: 24px 12px; }
 .plan-body { width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 16px; }
-/* 24px radius = a full pill at one line (48px) and a rounded box at three; the send button sits on
-   the last line. */
-.ask { display: flex; align-items: flex-end; gap: 8px; border-radius: 24px; padding: 0 12px 4px 24px;
+/* 24px radius = a full pill at one line (48px) and a rounded box at three; the send button stays
+   vertically centered. */
+.ask { display: flex; align-items: center; gap: 8px; border-radius: 24px; padding: 0 12px 0 24px;
   background: var(--md-sys-color-surface-container-highest); }
-.ask textarea { flex: 1; min-width: 0; border: none; background: none; padding: 12px 0 8px; margin: 0;
+.ask textarea { flex: 1; min-width: 0; border: none; background: none; padding: 12px 0; margin: 0;
   font: inherit; font-size: 16px; line-height: 24px; letter-spacing: 0; color: inherit; outline: none;
   resize: none; max-height: 84px; overflow-y: auto; }
 .ask textarea::placeholder { color: var(--ink); opacity: 1; }
