@@ -25,7 +25,7 @@ export function Sidebar({ active, onNavigate, approvals, openCaseId, onOpenCase,
     <aside className="sidebar">
       {/* The column runs the page's full height; its content stays pinned to the viewport. */}
       <div className="sidebar-inner">
-      <div className="brand">SynSupply</div>
+      <div className="brand">SynapseSupply</div>
       <nav className="sidebar-body" aria-label="Console">
         <ul className="nav">
           {NAV.map(([page, label]) => (
