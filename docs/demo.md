@@ -49,15 +49,17 @@ SC-01 to show the contrast: a small, safe fix runs alone, a large one goes to a 
 ## Likely questions, with answers grounded in what we measured
 
 - **"Is it reliable or did you get lucky?"** Our regression eval (`scripts/eval_scenarios.py`) ran each
-  scenario three times against Claude: 9/9 runs reached the expected decision and option, with an
-  identical tool sequence each time.
+  of the 3 scenarios three times against Claude: 9/9 runs reached the expected decision and option
+  (plus the two do-nothing cases, 6/6), with an identical tool-call count each time.
 - **"How do you prevent hallucinated actions?"** The model can only pick an `option_id` that code
-  computed. Quantity limits, cost and confidence are recomputed by the tool, and Cedar decides
-  whether it runs. In a live run Claude restated a certificate date wrongly; compliance reasons now
+  computed. Cost and confidence are recomputed by the tool from that option, and Cedar decides
+  whether it runs. The quantity is the model's: the tool only checks that it is positive and, for a
+  transfer, within what the plant can spare (`docs/agent.md`). In a live run Claude restated a certificate date wrongly; compliance reasons now
   come from the gate, not the model (`docs/agent.md`).
 - **"What is the 0.97 confidence?"** Evidence quality, not model self-assessment: 0.97 minus fixed
   deductions (shortfall not covered, late arrival, thin history, fallback ERP, RPT-1 late risk ≥ 50%).
-  Any one weakness drops it below 0.90.
+  Any one major weakness (shortfall, late arrival, fallback ERP, RPT-1 late risk) drops it below
+  0.90; thin demand or lead-time history costs 0.05 each.
 - **"Is this real SAP?"** The S/4 system is a mock with real API names and wire format (OData v2,
   CSRF, `/Date()/`). The data is synthetic and fictional. Joule, AI Core, RPT-1 and Cloud Foundry
   are the real hackathon tenant.

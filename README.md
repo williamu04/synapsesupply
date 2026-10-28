@@ -16,7 +16,7 @@ When a wood-fiber delivery slips, the agent works through these steps:
 
 ![Architecture](docs/img/architecture-system.png)
 
-**Docs:** `docs/pending.md` (everything still open, with next steps) · `docs/links.md` (every link used, and what for) · `docs/architecture.md` (as built, and what isn't) · `docs/demo.md` (Demo Day runbook) ·
+**Docs:** `docs/pending.md` (everything still open, with next steps) · `docs/known-issues.md` (code problems found in the audit, not yet fixed) · `docs/links.md` (every link used, and what for) · `docs/architecture.md` (as built, and what isn't) · `docs/demo.md` (Demo Day runbook) ·
 `docs/operations.md` (run, deploy, configure, secrets, troubleshooting) · `docs/agent.md` (agent internals, evals) ·
 `docs/api.md` · `docs/joule.md` · `docs/agentcore.md` · `docs/contracts.md`.
 
@@ -29,13 +29,13 @@ When a wood-fiber delivery slips, the agent works through these steps:
 | Synthetic dataset and scenarios (`src/synapse/data/`) | M3 | done, tested |
 | Mock S/4 OData server (`src/synapse/mock_s4/`) and ERP client with failover (`erp.py`) | M2 | done, tested |
 | Cedar policies + engine (`src/synapse/policy/`) | M1 | done, tested locally (cedarpy) |
-| Agent: Strands tools, SOPs, model routing, triage, autopilot fail-safe, case service, CLI (`src/synapse/agent/`, `docs/agent.md`) | M1 | done; all 3 scenarios correct with real Claude 4.6 Sonnet on SAP AI Core (Bedrock pending AWS account verification) |
-| HTTP API: cases, approvals, SSE live trace, recordings replay, demo control (`src/synapse/api/`, `docs/api.md`) | M2/M3 consume | done, tested |
-| Console UI: live trace, stock projection chart, options + compliance, decision card with approve/reject, demo buttons, replay (`ui/`) | M3 | done, unit-tested, screenshot-checked light/dark/phone |
+| Agent: Strands tools, SOPs, model routing (a failed provider is skipped for 5 minutes, so a refusal costs about 1 s), triage, autopilot fail-safe, case service, CLI (`src/synapse/agent/`, `docs/agent.md`) | M1 | done; all 3 scenarios correct with real Claude 4.6 Sonnet on SAP AI Core (for now no Bedrock account or quota; `ModelRouter` still lists Bedrock first) |
+| HTTP API: cases, approvals, SSE live trace, recordings replay, demo control (boot scenario SC-01 on every start, `stage` for the ERP poller), mock S/4 shared at `/s4` (`src/synapse/api/`, `docs/api.md`) | M2/M3 consume | done, tested |
+| Console UI: opens on the case awaiting approval, live trace and summary (model `**bold**` rendered), stock projection chart, options + compliance, decision card with approve/reject (fallback to Joule), demo buttons, replay (`ui/`) | M3 | done, unit-tested, screenshot-checked light/dark/phone |
 | AgentCore Runtime packaging: entry point + ARM64 image (`src/synapse/agentcore.py`, `Dockerfile`, `docs/agentcore.md`) | M1 | **deployed** to AgentCore Runtime in ap-southeast-2; SC-01 verified |
-| DynamoDB cases + trace, S3 audit archive (`src/synapse/aws_store.py`) | M1 | **running**; AgentCore Gateway + Policy dropped for Demo Day |
-| Joule: A2A agent + capability YAML (request, pending approvals, approve/reject in chat, rich cards: decision, options table, stock projection) (`src/synapse/joule/`, `joule/`, `docs/joule.md`) | M2 | **live**: assistant `synapsesupply_assistant` + destination `SYNAPSE_AGENT_YPDD`; approve-in-Joule tested end to end; rich replies prepared (`GET /cases/{id}/view`) |
-| Cloud Foundry deployment of API + console + Joule agent (`manifest.yml`, `scripts/cf_prepare.sh`) | M2/M3 | **deployed** to the team space; both apps protected by keys; SC-02 runs live in 18 s (URLs in `docs/joule.md`) |
+| DynamoDB cases + trace, S3 audit archive (`src/synapse/aws_store.py`) | M1 | **running**: cases and traces shared by the BTP API, Joule and AgentCore, one S3 audit file per case; AgentCore Gateway + Policy dropped for Demo Day |
+| Joule: A2A agent + capability YAML (request, pending approvals, approve/reject in chat, rich cards: decision, options table, stock projection) (`src/synapse/joule/`, `joule/`, `docs/joule.md`) | M2 | **live**: assistant `synapsesupply_assistant` + destination `SYNAPSE_AGENT_YPDD`; approve-in-Joule tested end to end; rich cards from `GET /cases/{id}/view` (Analytical chart verified in the tenant 2026-10-27); decision card shows formatted amount, quantity and compliance |
+| Cloud Foundry deployment of API + console + Joule agent (`manifest.yml`, `scripts/cf_prepare.sh`) | M2/M3 | **deployed** to the team space; both apps protected by keys (open: `/health` and the API's `/docs`, `/redoc`, `/openapi.json`); SC-02 runs live in 18 s (URLs in `docs/joule.md`) |
 | SAP RPT-1 delivery-risk prediction per supplier option (`sap/rpt.py`, `domain/delays.py`), shown in console and used in confidence | M2 | done, verified live against the team's AI Core |
 | ERP poller Lambda → SQS FIFO → dispatcher Lambda → AgentCore (`lambdas/`, `infra/`) | M3 | **running**: ERP change to escalated case in 84 s |
 
@@ -55,8 +55,10 @@ For UI development, run `npm run dev` in `ui/`, which proxies API calls to :8080
 `/console/?case=<case_id>` opens a case (link to it from the Joule card), and `/console/?replay=sc01`
 replays a recording from `recordings/`.
 
-The agent uses Claude on Bedrock when credentials are available and otherwise falls back to the
-deterministic autopilot. See `docs/agent.md` for model setup, the decision split and the failover drill.
+The hackathon AWS account has a zero Bedrock token quota for Claude, and for now there is no Bedrock
+account or quota, so Claude runs on SAP AI Core. `ModelRouter` still lists Bedrock first; moving to
+Bedrock is a configuration change on an account with quota. If no model answers, the deterministic
+autopilot takes over. See `docs/agent.md` for model setup, the decision split and the failover drill.
 
 Try it:
 
@@ -91,14 +93,19 @@ src/synapse/erp.py           OData client: typed rows, CSRF, failover to the moc
 src/synapse/mock_s4/         OData v2 mock: store and FastAPI app
 src/synapse/policy/          Cedar policies, schema and the ALLOW/ESCALATE/DENY engine
 src/synapse/agent/           toolkit, SOPs, prompts, model routing, triage, autopilot, service, CLI
-src/synapse/api/             HTTP API: cases, approvals, SSE trace, replay, demo control, serves ui/dist
+src/synapse/api/             HTTP API: cases, approvals, SSE trace, replay, demo control, case view for Joule;
+                             serves ui/dist and the mock S/4 at /s4
 src/synapse/joule/           A2A agent for SAP Joule (chat -> API), deployable to Cloud Foundry
 src/synapse/agentcore.py     Amazon Bedrock AgentCore Runtime entry point (Dockerfile builds the ARM64 image)
-src/synapse/env.py           loads the git-ignored .env for local secrets
+src/synapse/aws_store.py     DynamoDB cases + trace, S3 audit archive (memory fallback)
+src/synapse/env.py           loads secrets: the git-ignored .env locally, AWS Secrets Manager on AgentCore
 joule/                       Joule capability (da.sapdas.yaml, scenarios, function)
 ui/                          React + TypeScript console (Vite), no UI library; chart is hand-built SVG
+lambdas/                     ERP poller and case dispatcher Lambdas
+infra/                       CloudFormation stack (DynamoDB, S3, SQS FIFO, Lambdas, EventBridge)
 recordings/                  recorded demo runs (JSONL) for the replay fallback
-scripts/                     cf_prepare.sh (Cloud Foundry build), eval_scenarios.py (regression eval)
+scripts/                     cf_prepare.sh (Cloud Foundry build), eval_scenarios.py (regression eval),
+                             aws_deploy.sh, agentcore_update.sh, cf_bedrock_credentials.sh
 manifest.yml, runtime.txt    Cloud Foundry apps (API + console, Joule agent); Python 3.13 pin
 tests/                       unit, HTTP and "the data tells the story" tests
 ```
@@ -109,4 +116,6 @@ in the parent workspace folder. It is not part of this repo.
 ## Credentials
 
 Never commit AI Core or Joule service keys, client secrets or tokens. `.gitignore` covers `.env*` and
-`*-key.json`. Keep keybroker output in `.env` locally.
+`*-key.json`. Keep keybroker output in `.env` locally. On AgentCore Runtime the credentials come from
+the AWS Secrets Manager secret `synapsesupply/runtime` (`SYNAPSE_SECRETS_ID`); see `docs/operations.md`
+for the full inventory and rotation.

@@ -11,16 +11,22 @@ CaseMessage ──► CaseService.handle
                  │     └─ if the model is unreachable or ends without a decision → autopilot
                  ▼
             CaseToolkit (traced tools, ERP via OData)
-              get_case_details → analyze_stock_position → find_sourcing_options
-              → [check_supplier_compliance] → submit_action | close_without_action
+              ASN_DELAY:    get_case_details → analyze_stock_position
+                              → close_without_action (no breach)        → NO_ACTION_NEEDED
+                              | find_sourcing_options → submit_action
+              USER_REQUEST: get_case_details → check_supplier_compliance (if a supplier is named)
+                              → analyze_stock_position → find_sourcing_options
+                              → submit_action | close_without_action
                  ▼
             submit_action: proposal → Cedar (PolicyEngine)
               ALLOW    → write in S/4 now                      → EXECUTED
               ESCALATE → approval card (Joule / console)       → AWAITING_APPROVAL
               DENY     → nothing written                       → BLOCKED
                  ▼
-            CaseService.approve(case, planner) → Cedar as the approver → write → EXECUTED
+            CaseService.approve(case, planner) → Cedar as the approver
+              ALLOW → write → EXECUTED;  DENY → BLOCKED;  S/4 write fails → FAILED
             CaseService.reject(case, planner, reason)                           → REJECTED
+            Any unhandled error during a run                                    → FAILED
 ```
 
 ## Who decides what
@@ -29,14 +35,18 @@ CaseMessage ──► CaseService.handle
 |---|---|---|
 | Stock projection, safety stock, shortfall | Code (`domain/`) | Reproducible numbers, unit-tested |
 | What the options are, with arrival, cost and compliance | Code (`domain/options.py`) | The model can't invent an option or a price |
-| How likely each supplier is to deliver on time | **SAP RPT-1** (`sap/rpt.py`), predicting in-context from S/4 delivery history; empirical per-supplier rate if AI Core is unreachable, labelled as such | Learned from the ERP's own record |
+| How likely each supplier is to deliver on time | **SAP RPT-1** (`sap/rpt.py`), predicting in-context from S/4 delivery history; empirical per-supplier rate if AI Core is not configured, unreachable or returns an error, labelled as such | Learned from the ERP's own record |
 | Which option, and why; the summary for the planner | The model, following the SOP | Judgement and explanation, which is the agentic part |
 | Confidence | Code (`plan_confidence`) | Evidence quality, not the model's self-assessment |
 | Whether it may run | Cedar | Deterministic guardrail the model cannot override |
 
-`submit_action` takes only an `option_id`. It recomputes quantity limits, cost and confidence
-itself, so a model mistake can at worst choose a different *valid* option. If the model chooses a
-BLOCKed supplier, Cedar denies it (`tests/test_agent_llm.py`).
+`submit_action` takes `option_id`, `quantity`, `rationale` and `rejected_alternatives`. The model
+chooses both the option and the quantity. Code only checks that the option exists, that the
+quantity is above 0 and, for stock transfers, that it does not exceed `max_quantity` (purchase
+orders have no upper limit); a quantity below the shortfall costs 0.15 confidence. Cost and
+confidence are recomputed in code, and the compliance result is the one `find_sourcing_options`
+computed for its own quantity; the gate is not re-run for the submitted quantity. If the model
+chooses a BLOCKed supplier, Cedar denies it (`tests/test_agent_llm.py`).
 
 ## Confidence (what "≥ 0.90" means)
 
@@ -51,7 +61,8 @@ The score starts at 0.97 and drops for each weakness:
 | Running on the fallback (mock) ERP | −0.10 |
 | Chosen supplier predicted more likely late than on time (RPT-1 late probability ≥ 0.5) | −0.10 |
 
-Any single weakness drops the score below 0.90, so a human decides.
+Any single weakness drops the score below 0.90, so a human decides, except thin demand or
+lead-time history: either one alone gives 0.92, which still passes; both together give 0.87.
 
 ## Running it
 
@@ -73,13 +84,16 @@ uv run python -m synapse.agent.cli all --planner autopilot --record demo.jsonl  
   refusal costs about a second (verified 2026-10-22 against the real zero-quota Bedrock).
 - **SAP AI Core fallback:** `uv sync --extra aicore`, then set the `AICORE_*` variables (the same
   ones as the Joule A2A sample's `.env`). The router then fails over from Bedrock to
-  `sap/anthropic--claude-4.6-sonnet`.
+  `sap/anthropic--claude-4.6-sonnet` (override with `SYNAPSE_AICORE_MODEL_ID`).
+- **Provider order and cooldown:** `SYNAPSE_MODEL_PROVIDERS` (default `bedrock,aicore`) and
+  `SYNAPSE_MODEL_COOLDOWN_S` (default 300).
 
 If neither is reachable, the trace shows `Model unavailable — deterministic autopilot takes over`
 and the case still completes.
 
-Entry points (CLI, API, Joule agent) read a git-ignored `.env` for local secrets; the platform's
-environment wins if both are set.
+Entry points (CLI, API, Joule agent, AgentCore) read a git-ignored `.env` for local secrets, and AWS
+Secrets Manager when `SYNAPSE_SECRETS_ID` is set (AgentCore); the platform's environment wins if
+both are set.
 
 ### Results with a real model (2026-10-21)
 
@@ -141,11 +155,11 @@ inbound = 11,900 t position, above the 4,784 t reorder point.
 
 - **AgentCore Gateway + Policy.** The Cedar file is ready, but entity and action names may need
   mapping to what AgentCore generates for the gateway's tools.
-- **Bedrock itself.** All real-model runs so far used Claude on SAP AI Core (see below). The
+- **Bedrock itself.** All real-model runs so far used Claude on SAP AI Core (see above). The
   hackathon AWS account has a zero Bedrock token quota for Claude, and for now there is no Bedrock
   account or quota, so Claude runs on SAP AI Core. ModelRouter still lists Bedrock first;
   moving to Bedrock is a configuration change on an account with quota.
 
 SAP RPT-1 runs live against the team's AI Core: about 3 s per prediction, with the response matching
-the SAP Cloud SDK for AI's `RPTResponse` model. The empirical fallback is used only when AI Core is
-unreachable.
+the SAP Cloud SDK for AI's `RPTResponse` model. The empirical fallback is used when AI Core is not
+configured, unreachable, or returns an error or a malformed response.

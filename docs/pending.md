@@ -89,7 +89,8 @@ generated files are ignored.
 ## 7. Team rehearsal
 
 Run the 15 minutes in `demo.md` once, timed: console (SC-01 opens by itself) → approve in Joule →
-SC-03 in Joule → slides. Before the real demo: **Reset demo**, then wait for SC-01 or click it.
+SC-03 in Joule → slides. Before the real demo: **Reset demo**, then click **SC-01** (SC-01 appears by
+itself only after an API restart).
 
 ## 8. Start the demo from Joule (decision needed)
 
@@ -98,7 +99,7 @@ with the console as the view inside the agent. Alternative: keep triggering from
 
 ## 9. Rotate secrets after Demo Day
 
-All four (AI Core key, Joule key, API key, A2A key): where each lives and how to rotate it is in
+All five (AI Core key, Joule key, API key, A2A key, plus the CF Bedrock access key): where each lives and how to rotate it is in
 `operations.md`.
 
 ## 10–12. Future work, presented as such in the deck

@@ -1,7 +1,7 @@
 # Architecture (as built, 2026-10-22)
 
-Everything below runs today. Items marked *planned* are designed but not deployed (see "Not yet
-built" at the end).
+Everything below runs today, including the AWS ingestion path. Items not yet built are listed at
+the end.
 
 ## System
 
@@ -28,7 +28,15 @@ flowchart LR
       CLAUDE["Claude 4.6 Sonnet<br/>(planning, triage)"]
     end
   end
-  BEDROCK["Amazon Bedrock · Claude<br/>(primary; pending account access)"]
+  subgraph AWS["AWS · ap-southeast-2"]
+    POLLER["ERP poller Lambda<br/>(every minute)"]
+    SQS[["SQS FIFO + dead-letter queue"]]
+    DISPATCH["Dispatcher Lambda"]
+    AGENTCORE["Agent on AgentCore Runtime<br/>(same code, ARM64 image)"]
+    DDB[("DynamoDB<br/>SynapseSupplyCases · SynapseSupplyTrace")]
+    S3[("S3 audit bucket<br/>one file per case")]
+  end
+  BEDROCK["Amazon Bedrock · Claude<br/>(primary in ModelRouter; for now no account or quota)"]
 
   USER -- "chat" --> JOULE --> A2A -- "x-api-key" --> API
   USER -- "browser" --> API
@@ -38,6 +46,13 @@ flowchart LR
   AGENT -- "on-time probability" --> RPT
   AGENT -- "LLM" --> CLAUDE
   AGENT -. "primary model (ModelRouter)" .-> BEDROCK
+  POLLER -- "late deliveries (mock S/4 at /s4)" --> S4
+  POLLER --> SQS --> DISPATCH --> AGENTCORE
+  AGENTCORE -- "ERP via /s4" --> S4
+  AGENT -- "cases + trace" --> DDB
+  AGENTCORE -- "cases + trace" --> DDB
+  AGENT -- "audit" --> S3
+  AGENTCORE -- "audit" --> S3
 ```
 
 ## One case
@@ -48,13 +63,16 @@ flowchart LR
 sequenceDiagram
   autonumber
   participant S4 as S/4 (OData)
+  participant Q as Poller → SQS FIFO → dispatcher
   participant AG as Agent (Claude + SOP)
   participant T as Tools (code)
   participant RPT as SAP RPT-1
   participant P as Cedar
   participant J as Joule / console
 
-  S4->>AG: ASN delayed (case 4500000091-10)
+  Q->>S4: poll for late deliveries (every minute)
+  S4-->>Q: ASN delayed
+  Q->>AG: case 4500000091-10 (AgentCore; or a console/Joule run on the API)
   AG->>T: get_case_details, analyze_stock_position
   T->>S4: PO, ASN, stock, 90 days of history
   T-->>AG: safety stock, 7-day projection, shortfall 911 t
@@ -87,8 +105,14 @@ sequenceDiagram
 | Surface | Role |
 |---|---|
 | SAP Joule (web client) | **The primary decision surface.** Chat plus native cards: decision `card`, options `Table`, projection `Analytical` chart, Approve/Show-status buttons. Fed by the A2A reply's data part, which carries `GET /cases/{id}/view`. |
-| Console (`ui/`, served by the API at `/console/`) | Deep detail: full live trace, chart, options, replay, demo controls. Its Approve/Reject is the fallback decision path (same API, same Cedar check). Served same-origin by FastAPI on Cloud Foundry; AWS Amplify is not used. |
-| Joule approval card / API | Approve/reject still goes through the API and Cedar as the approver. |
+| Console (`ui/`, served by the API at `/console/`) | Deep detail: full live trace, chart, options, replay, demo controls. Its Approve/Reject is the fallback decision path (same API: Approve is re-checked by Cedar as the approver; Reject records the reason). Served same-origin by FastAPI on Cloud Foundry; AWS Amplify is not used. |
+| Joule approval card / API | Approve goes through the API and is re-checked by Cedar as the approver; reject records the approver and reason. |
+
+## Built on AWS (done 2026-10-22)
+
+| Part | Status |
+|---|---|
+| DynamoDB case store, S3 audit, OData poller Lambda, SQS FIFO ingestion, dispatcher Lambda → AgentCore Runtime | **Running** in ap-southeast-2 (`docs/pending.md` #4–5, `infra/synapsesupply.yaml`); cases and traces in DynamoDB, shared by the BTP API, Joule and AgentCore |
 
 ## Not yet built
 
@@ -96,6 +120,5 @@ sequenceDiagram
 |---|---|
 | Bedrock as the primary model | The hackathon AWS account has a zero Bedrock token quota for Claude, and for now there is no Bedrock account or quota, so Claude runs on SAP AI Core. ModelRouter still lists Bedrock first; moving to Bedrock is a configuration change on an account with quota. |
 | AgentCore Gateway with AgentCore Policy | Cedar file ready. (AgentCore **Runtime is deployed** in ap-southeast-2, `docs/agentcore.md`) |
-| (done 2026-10-22) DynamoDB case store, S3 audit, SQS FIFO ingestion, OData poller Lambda | **Running** in ap-southeast-2 (`docs/pending.md` #4–5, `infra/synapsesupply.yaml`); cases and traces in DynamoDB, shared by the BTP API, Joule and AgentCore |
 | Real S/4HANA | Mock uses real API names and wire format; no S/4 in the tenant |
 | Verified approver identity in Joule | Needs XSUAA / principal propagation |

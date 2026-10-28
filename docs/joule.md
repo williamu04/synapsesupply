@@ -26,15 +26,15 @@ Joule chat ──► capability (joule/) ──► BTP destination SYNAPSE_AGENT
 
 ## Rich replies in the chat
 
-The console is a read-only monitor; decisions happen in Joule. The capability therefore renders the
-case natively in the chat, not just as text:
+Joule is the primary decision surface; the console's Approve/Reject is the fallback (same API, same
+Cedar check). The capability therefore renders the case natively in the chat, not just as text:
 
 | Element | Renders |
 |---|---|
 | markdown `text` | the same summary as before — always sent, so a card problem degrades gracefully |
-| `card` | decision: effect badge (ALLOW/ESCALATE/DENY), confidence, compliance, quantity, SAP document |
-| `ui5integrationCard` `Table` | sourcing options: source, outcome, arrival, RPT-1 on-time %, incremental cost, EUDR compliance badge |
-| `ui5integrationCard` `Analytical` | 7-day stock projection (closing stock vs safety stock) |
+| `card` | decision: effect badge (ALLOW/ESCALATE/DENY), confidence, compliance, quantity, SAP document. Figures come preformatted from the view (`$8,280` incremental, `920 t`, `Not applicable (own plant)` for a stock transfer), so the YAML does no formatting |
+| `ui5integrationCard` `Table` | sourcing options: source, outcome, arrival, RPT-1 on-time probability (0–1, e.g. `0.85`), incremental cost, EUDR compliance badge |
+| `ui5integrationCard` `Analytical` | 7-day stock projection (closing stock vs safety stock). `feeds` is mandatory (without it the card stays a grey placeholder); the default chart title and the truncated y-axis title are hidden, and days show as "Nov 1" so the axis labels fit. Verified in the tenant 2026-10-27 |
 | `quickReplies` | Approve / Show status (the markdown text carries the console deep link) |
 
 **Data flow.** The A2A bridge calls `GET /cases/{id}/view` (same API) and puts the compact view in the
@@ -53,8 +53,9 @@ manifest — with `joule lint . && joule deploy --compile .`.
 | API + console | `https://synapsesupply-api-yang-penting-daftar-dulu.cfapps.ap10.hana.ondemand.com` (console at `/console/`) | `x-api-key`, or browser login with any user name and `SYNAPSE_CF_API_KEY` from `.env` as the password |
 | Joule agent (A2A) | `https://synapsesupply-joule-yang-penting-daftar-dulu.cfapps.ap10.hana.ondemand.com` | `x-api-key`, or Basic auth with `SYNAPSE_CF_A2A_KEY` from `.env` as the password |
 
-Both run on Cloud Foundry with Claude 4.6 Sonnet on SAP AI Core (`SYNAPSE_MODEL_PROVIDERS=aicore`
-until the AWS account is verified) and live SAP RPT-1. SC-02 took 18 s end to end there.
+Both run on Cloud Foundry with live SAP RPT-1. `SYNAPSE_MODEL_PROVIDERS` is `bedrock,aicore`, but for
+now there is no Bedrock account or quota, so Claude 4.6 Sonnet runs on SAP AI Core (Bedrock is skipped
+for 5 minutes after each refusal). SC-02 took 18 s end to end there.
 
 **Joule assistant:** `synapsesupply_assistant` was deployed on 2026-10-21. Web client:
 `https://aws-sap-hackathon-si4ykj9d.ap10.sapdas.cloud.sap/webclient/standalone/synapsesupply_assistant`
@@ -90,9 +91,9 @@ approve is controlled by the scenarios' `visibility_condition` (your team's IAS 
    - Type: HTTP. URL: `https://synapsesupply-joule-<team>.cfapps.ap10.hana.ondemand.com`.
    - Use the same proxy and authentication settings as the sample's exercise 03.
 3. **Edit the alias.** In `joule/synapse_capability/capability.sapdas.yaml`, change
-   `destination: SYNAPSE_AGENT_TEAM` to your destination's name.
-4. **Restrict who sees it (recommended).** Add a `visibility_condition` with your team's IAS group
-   id (from `/group/<team>` on the keybroker; see `BTP_Instructions/README.md` § Visibility Conditions).
+   `destination: SYNAPSE_AGENT_YPDD` to your team's destination name.
+4. **Restrict who sees it (recommended).** Replace the IAS group id in both scenarios'
+   `visibility_condition` (`joule/synapse_capability/scenarios/*.yaml`) with your team's group id (from `/group/<team>` on the keybroker; see `BTP_Instructions/README.md` § Visibility Conditions).
 5. **Deploy the capability.** In your own terminal (the CLI asks for your IAS user and password),
    run `joule login --no-app-tid …` (never `--sso`) with the client id and secret from the
    keybroker's `/joule/<team>-key`. Then, from `joule/`, run `joule deploy --compile .` and
@@ -113,8 +114,8 @@ approve is controlled by the scenarios' `visibility_condition` (your team's IAS 
   logged to `cf logs synapsesupply-joule-<team>`.
 - **All five conversations work end to end:** pending approvals, case status, approve (S/4 document
   created), reject, and a blocked buyer request.
-- **The demo button resets everything.** "Run SC-01" in the console clears every case. Don't
-  click it between steps of a Joule demo.
+- **The demo buttons reset everything.** Clicking a scenario button (e.g. **SC-01**) under "Trigger
+  a disruption" in the console clears every case. Don't click it between steps of a Joule demo.
 
 ## Redeploying within the 2 GB space quota
 
@@ -141,9 +142,10 @@ and stages SC-01 again. Re-run any other demo scenario afterwards.
   answers in under a second. Real Claude runs took **18 s on Cloud Foundry** (38–47 s from a laptop),
   inside the limit. If they creep toward 60 s, switch to the multi-turn async pattern linked in
   the workspace README; on stage, a recorded run is the fallback.
-- **Buttons.** When exactly one case awaits approval, Joule shows **Approve** and **Show status**
+- **Buttons.** Whenever the reply concerns a case awaiting approval (a status reply, an escalated
+  request, or a pending list with exactly one case), Joule shows **Approve** and **Show status**
   quick replies under the reply. The agent's artifact carries a data part (`case_id`, `status`,
-  `awaiting_approval`) after the markdown, and the function's second action group reads it.
+  `awaiting_approval`, `view`) after the markdown, and the function's last action group reads it.
   Verified in the web client on 2026-10-22: the button appears, and clicking it sends
   `approve 4500000091-10`, which executed the case (S/4 document 4500000105). Reject stays typed,
   because it needs a reason.

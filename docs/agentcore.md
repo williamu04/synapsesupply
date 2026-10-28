@@ -15,11 +15,12 @@ Created in `ap-southeast-2` (2026-10-22), besides the runtime:
 |---|---|
 | ECR repository (scan on push) | `synapsesupply-agent`, tag `latest` (ARM64) |
 | IAM execution role | `SynapseSupplyAgentCoreRuntime` (trust: `bedrock-agentcore.amazonaws.com`, this account only) |
-| Secrets Manager secret | `synapsesupply/runtime`: JSON with the `AICORE_*` variables and `LITELLM_PROVIDER` |
+| Secrets Manager secret | `synapsesupply/runtime`: JSON with the `AICORE_*` variables, `LITELLM_PROVIDER` (unused), and `SYNAPSE_ERP_USER` / `SYNAPSE_ERP_PASSWORD` for the CF `/s4` (written by `scripts/aws_deploy.sh`) |
 
-The role's inline policy `runtime` allows only: pulling this repository, writing the runtime's
-CloudWatch logs, X-Ray/metrics, workload access tokens, reading `synapsesupply/runtime`, invoking
-Bedrock models, and the (future) `SynapseSupplyCases` DynamoDB table.
+The role has two inline policies. `runtime` allows pulling this repository, writing the runtime's
+CloudWatch logs, X-Ray/metrics, workload access tokens, reading `synapsesupply/runtime` and invoking
+Bedrock models. `synapsesupply-data` (from `infra/synapsesupply.yaml`) allows the `SynapseSupplyCases`
+and `SynapseSupplyTrace` DynamoDB tables and `s3:PutObject` on the audit bucket's `cases/*`.
 
 ## What exists
 
@@ -32,7 +33,7 @@ Bedrock models, and the (future) `SynapseSupplyCases` DynamoDB table.
 ### Payloads
 
 ```json
-{"scenario": "SC-01"}                                       // demo mode (in-process mock S/4)
+{"scenario": "SC-01"}                                       // demo mode: resets the shared S/4 and clears the shared case tables
 {"case": { ...CaseMessage... }}                             // from the poller / queue
 {"request": "Order 1,300 t of chips …", "user": "buyer01"}  // buyer request
 {"approve": "4500000091-10", "approver": "planner:dewi"}
@@ -44,13 +45,18 @@ Each reply is `{"case": CaseRecord, "trace": [...]}`, or `{"error", "code"}` wit
 `bad_request`, `not_found`, `conflict`, `not_available` or `failed`. Add `"include_trace": false` to
 leave out the trace.
 
+**Warning:** the deployed runtime points `SYNAPSE_ERP_URL` at the Cloud Foundry `/s4` with
+`SYNAPSE_DEMO=1`, so a `scenario` payload resets the shared mock S/4 (the one the console uses) and
+deletes every case in the shared DynamoDB tables. The in-process mock is only the failover
+(`SYNAPSE_FALLBACK_MOCK=1`).
+
 ## Deploy (ap-southeast-2)
 
 ```bash
 ACCOUNT=398074591173 REGION=ap-southeast-2 REPO=synapsesupply-agent
 
 # 1. Image to ECR (ARM64)
-aws ecr create-repository --repository-name $REPO --region $REGION
+aws ecr create-repository --repository-name $REPO --region $REGION --image-scanning-configuration scanOnPush=true
 aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $ACCOUNT.dkr.ecr.$REGION.amazonaws.com
 docker buildx build --platform linux/arm64 -t $ACCOUNT.dkr.ecr.$REGION.amazonaws.com/$REPO:latest --push .
 
@@ -63,15 +69,16 @@ aws bedrock-agentcore-control create-agent-runtime --region $REGION \
   --agent-runtime-artifact "containerConfiguration={containerUri=$ACCOUNT.dkr.ecr.$REGION.amazonaws.com/$REPO:latest}" \
   --network-configuration networkMode=PUBLIC \
   --role-arn arn:aws:iam::$ACCOUNT:role/SynapseSupplyAgentCoreRuntime \
-  --environment-variables '{"AWS_REGION":"ap-southeast-2","SYNAPSE_SECRETS_ID":"synapsesupply/runtime","SYNAPSE_MODEL_PROVIDERS":"bedrock,aicore"}'
-# After pushing a new image: scripts/agentcore_update.sh (update-agent-runtime with the current
-# settings, bedrock,aicore; then waits for READY).
+  --environment-variables '{"AWS_REGION":"ap-southeast-2","SYNAPSE_SECRETS_ID":"synapsesupply/runtime","SYNAPSE_MODEL_PROVIDERS":"bedrock,aicore","SYNAPSE_CASES_TABLE":"SynapseSupplyCases","SYNAPSE_TRACE_TABLE":"SynapseSupplyTrace","SYNAPSE_AUDIT_BUCKET":"synapsesupply-audit-398074591173-ap-southeast-2","SYNAPSE_ERP_URL":"https://synapsesupply-api-yang-penting-daftar-dulu.cfapps.ap10.hana.ondemand.com/s4","SYNAPSE_FALLBACK_MOCK":"1","SYNAPSE_DEMO":"1"}'
+# After pushing a new image: scripts/agentcore_update.sh (update-agent-runtime with these same
+# variables: shared tables, audit bucket, CF /s4 with mock failover, demo mode; then waits for READY).
 
 # 4. Invoke
 aws bedrock-agentcore invoke-agent-runtime --region $REGION \
   --agent-runtime-arn arn:aws:bedrock-agentcore:$REGION:$ACCOUNT:runtime/synapsesupply-vFgJ0n85b6 \
   --runtime-session-id "synapsesupply-demo-$(date +%s)-session-0001" \
   --cli-binary-format raw-in-base64-out --payload '{"scenario":"SC-01","include_trace":false}' out.json
+# Caution: this resets the shared S/4 and clears the console's cases (see Payloads).
 ```
 
 The JSON form of `--environment-variables` is needed because `bedrock,aicore` contains a comma.

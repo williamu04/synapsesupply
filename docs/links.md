@@ -60,7 +60,7 @@ Everything else on AWS was done with the AWS CLI (`aws login`), so no further UR
 
 | Source | What we take from it |
 |---|---|
-| https://pypi.org (via `uv`, pinned in `uv.lock`) | `strands-agents` (agent loop, `ModelRouter`, Bedrock), `strands-agents[litellm]` (SAP AI Core via LiteLLM), `bedrock-agentcore` (runtime entry point), `cedarpy` (Cedar policies), `a2a-sdk` 0.3.25 (Joule A2A), `fastapi`, `uvicorn`, `pydantic`, `httpx`, `botocore`, `python-dotenv` |
+| https://pypi.org (via `uv`, pinned in `uv.lock`) | `strands-agents` (agent loop, `ModelRouter`, Bedrock), `strands-agents[litellm]` (SAP AI Core via LiteLLM), `bedrock-agentcore` (runtime entry point), `cedarpy` (Cedar policies), `a2a-sdk` 0.3.25 (Joule A2A), `fastapi`, `uvicorn`, `pydantic`, `httpx`, `boto3` / `botocore` (transitive via `strands-agents`; the dispatcher Lambda bundles an unpinned `boto3>=1.40`), `python-dotenv` |
 | https://registry.npmjs.org (via `npm`, pinned in `ui/package-lock.json`) | Console: `react` 18.3.1, `vite` 5.4.11, `typescript` 5.6.3, `vitest` |
 | Docker Hub `python:3.12-slim-bookworm` | AgentCore image base (`Dockerfile`) |
 | `ghcr.io/astral-sh/uv:0.11.16` | `uv` binary copied into the image |

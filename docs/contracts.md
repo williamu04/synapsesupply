@@ -16,12 +16,26 @@ all three members, plus an updated test in `tests/test_contracts.py`.
 
 ## 1. Case payload
 
-- `case_id` = `{document_number}-{item_id}`, built with `make_case_id()`. Item numbers are normalised
-  (`00010` becomes `10`). For an ASN delay, the document is the **purchase order** that the ASN references.
+- `case_id` = `{document_number}-{item_id}`, matching `^[A-Z0-9]{4,20}-[0-9]{1,6}$`. For an ASN delay,
+  the document is the **purchase order** that the ASN references. `make_case_id()` normalises item
+  numbers (`00010` becomes `10`), but the poller Lambda builds the id itself as `f"{po}-{po_item}"`
+  without normalising; it works today because the mock seed uses item `10`. Buyer requests get
+  `REQ<yymmddHHMMSS + 1/100 ms>-1` (`new_request_case_id()`).
+- `process_type`: `ASN_DELAY`, `STOCK_BELOW_SAFETY`, `SUPPLIER_COMPLIANCE_ALERT`, `USER_REQUEST`.
+  `payload_source`: `ODATA_POLLER`, `CARRIER_WEBHOOK`, `JOULE_A2A`, `MANUAL`.
 - In SQS FIFO, `MessageGroupId = case_id` (cases are processed in order per PO item) and
-  `MessageDeduplicationId = case_id + timestamp`.
-- `timestamp` must be timezone-aware UTC.
-- `raw_payload` holds the source record unchanged: the OData row, or the carrier notice text.
+  `MessageDeduplicationId = case_id:<new delivery date>` (the poller; the `CaseMessage` docstring
+  still says `case_id + timestamp`).
+- `timestamp` must be timezone-aware (UTC by convention; any offset passes the validator).
+- `raw_payload` is a small dict built by the producer, not the source record unchanged:
+
+  | Source | Keys |
+  |---|---|
+  | Poller Lambda | `delivery_document`, `supplier`, `plant`, `material`, `planned_date`, `new_date`, `delay_days` |
+  | Demo scenario | `scenario_id`, `title`, `plant`, `material`, `carrier_notice`, `utterance` (those that are set) |
+  | Buyer request | `utterance`, `requested_by` |
+
+  The service adds `triage` for requests and reads `plant`, `material`, `utterance` and `carrier_notice`.
 
 ## 2. MCP tools
 
@@ -31,16 +45,24 @@ and the ERP refuses it as well.
 
 ## 3. A2A context
 
-This goes in the A2A v0.3 `message/send` data part: `session_id`, `user_utterance`, `context_payload`.
+`A2AContext` (`session_id`, `user_utterance`, `context_payload`) is defined but not used. The Joule A2A
+server reads the user's words from the message's **text** part (`context.get_user_input()`): plain
+text, a JSON string literal, or `{"user_request": …}` (`joule/server.py`).
 **The user's JWT travels in the `Authorization` header, never in the message body.** Message bodies get
-logged and traced. This changes the original plan in `strategy.md`, which put `jwt_token` in the body.
+logged and traced. The token's signature is not verified; it is only used as the approver label.
+This changes the original plan, which put `jwt_token` in the body.
 
 ## 4. Action proposal
 
 - `financial_impact_usd` is the **incremental cost** compared with the original plan, not the gross order
-  value. For a new PO it is `(new price − price on the delayed PO) × qty`. For a stock transfer it is
-  `freight per unit × qty`.
-- `CREATE_PURCHASE_ORDER` must carry the `compliance_outcome` from the gate (`domain/compliance.py`).
+  value. For a new PO it is `(new price − price on the delayed PO) × qty`, with the per-unit difference
+  floored at 0; for a buyer request there is no delayed PO, so the baseline is the cheapest compliant
+  (PASS) info-record price. For a stock transfer it is `freight per unit × qty`.
+- `action_type`: `RESCHEDULE_PO_LINE`, `CREATE_PURCHASE_ORDER`, `CREATE_STOCK_TRANSFER`, `NOTIFY_ONLY`.
+- Validators: `quantity > 0`, `financial_impact_usd ≥ 0`, `0 ≤ confidence ≤ 1`.
+  `CREATE_PURCHASE_ORDER` requires `supplier` and the `compliance_outcome` from the gate
+  (`domain/compliance.py`); `CREATE_STOCK_TRANSFER` requires a `supplying_plant` different from
+  `plant`; `RESCHEDULE_PO_LINE` requires `reference_document`.
 - `option_id` links the proposal to the computed sourcing option (`PO:<supplier>` or `STO:<plant>`).
 - `alternatives` lists what the agent rejected and why. The UI shows this list, and it is what makes
   the agent's reasoning visible to judges.
@@ -49,11 +71,12 @@ logged and traced. This changes the original plan in `strategy.md`, which put `j
 
 | Effect | Meaning | Example |
 |---|---|---|
-| `ALLOW` | Execute autonomously | confidence ≥ 0.90, impact ≤ $5,000, gate PASS |
+| `ALLOW` | Execute autonomously | confidence ≥ 0.90, impact ≤ $5,000, gate PASS or not applicable (stock transfer); HOLD always escalates |
 | `ESCALATE` | Needs a human to approve, via a Joule card or the UI | transfer with $8.2k of freight |
 | `DENY` | No approval path | delete, or any supplier the gate BLOCKs |
 
-Policies: `Policy-ReadPermit`, `Policy-WriteGating`, `Policy-ForbidDelete`, `Policy-ComplianceBlock`.
+Policies: `Policy-ReadPermit`, `Policy-WriteGating`, `Policy-HumanApproval` (an approver may execute
+an escalated write; listed in every ESCALATE decision), `Policy-ForbidDelete`, `Policy-ComplianceBlock`.
 Actions are namespaced: `sap:read`, `sap:reschedule_po_line`, `sap:create_purchase_order`,
 `sap:create_stock_transfer`, `sap:delete`.
 
@@ -61,13 +84,14 @@ Actions are namespaced: `sap:read`, `sap:reschedule_po_line`, `sap:create_purcha
 
 Status flow: `NEW → ANALYZING →` one of `EXECUTED`, `AWAITING_APPROVAL`, `BLOCKED`,
 `NO_ACTION_NEEDED` (stock stays above safety stock) or `FAILED`.
-`AWAITING_APPROVAL` then becomes `EXECUTED`, `REJECTED`, or `FAILED` (the S/4 write failed after
-approval).
+`AWAITING_APPROVAL` then becomes `EXECUTED`, `REJECTED`, `BLOCKED` (Cedar refused the approver), or
+`FAILED` (the S/4 write failed after approval).
 
 ## 7. Trace event
 
 One SSE `data:` frame per event. `seq` is per case and strictly increasing. Replay mode re-emits
-recorded events in `seq` order, using the original gaps between `ts` values.
+recorded events in file order (recordings are written in `seq` order; `load_recording` does not
+sort), with the original gaps between `ts` values divided by `speed` and capped at 3 s each.
 
 ## Mock S/4 (system of record for the demo)
 

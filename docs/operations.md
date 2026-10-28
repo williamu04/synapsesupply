@@ -77,7 +77,7 @@ cf logs synapsesupply-joule-yang-penting-daftar-dulu --recent | grep "A2A messag
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `SYNAPSE_API_KEY` | none (open) | **Secret.** Required as `x-api-key`, `?api_key=`, or the Basic-auth password (browsers) on every route except `/health` |
+| `SYNAPSE_API_KEY` | none (open) | **Secret.** Required as `x-api-key`, `?api_key=`, or the Basic-auth password (browsers) on every route except `/health` and FastAPI's default `/docs`, `/redoc` and `/openapi.json`, which are open. `/s4` takes only `x-api-key` or Basic auth, not `?api_key=` |
 | `SYNAPSE_PLANNER` | `auto` | `auto` = Claude with autopilot fallback; `autopilot` = no model |
 | `SYNAPSE_MODEL_PROVIDERS` | `bedrock,aicore` | Order of model providers (all deployments use the default). A provider that fails is skipped for `SYNAPSE_MODEL_COOLDOWN_S`, so Bedrock without quota or credentials costs about a second per 5 minutes |
 | `SYNAPSE_REASONING_MODEL_ID` | `global.anthropic.claude-sonnet-4-6` | Bedrock planning model |
@@ -85,14 +85,14 @@ cf logs synapsesupply-joule-yang-penting-daftar-dulu --recent | grep "A2A messag
 | `SYNAPSE_MODEL_COOLDOWN_S` | `300` | How long a failed model provider is skipped before it is tried again |
 | `SYNAPSE_AICORE_MODEL_ID` | `sap/anthropic--claude-4.6-sonnet` | Model on SAP AI Core, via LiteLLM |
 | `AWS_REGION` | `ap-southeast-2` | The account's region; the organization denies AgentCore, ECR, DynamoDB etc. elsewhere. Don't change it |
-| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | none | **Secret.** Cloud Foundry only: IAM user `synapsesupply-cf-bedrock` (Bedrock invoke only), set by `scripts/cf_bedrock_credentials.sh`. AgentCore uses its IAM role instead |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (`AWS_SESSION_TOKEN` optional) | none | **Secret.** Cloud Foundry only: IAM user `synapsesupply-cf-bedrock`, set by `scripts/cf_bedrock_credentials.sh`. Allowed: Bedrock invoke, plus the case tables and audit bucket (inline policy `synapsesupply-data` from the stack). AgentCore uses its IAM role instead |
 | `SYNAPSE_CASES_TABLE`, `SYNAPSE_TRACE_TABLE` | none: memory | DynamoDB tables shared by the API and AgentCore (`SynapseSupplyCases`, `SynapseSupplyTrace`); memory fallback |
-| `SYNAPSE_AUDIT_BUCKET` | none | S3 bucket for one audit file per final case |
+| `SYNAPSE_AUDIT_BUCKET` | none | S3 bucket: one versioned audit object per case (`cases/yyyy/mm/dd/<case_id>.json`), rewritten at each decision (escalation, approval, …) |
 | `SYNAPSE_EXPOSE_S4` | off | `1` = serve the in-process mock S/4 at `/s4` behind the API key (BTP app only) |
 | `SYNAPSE_SECRETS_ID` | none | Secrets Manager secret (JSON of variables) loaded at startup; AgentCore uses `synapsesupply/runtime` |
 | `AICORE_CLIENT_ID`, `AICORE_CLIENT_SECRET` | none | **Secret.** AI Core service key (keybroker `/ai-core/<team>-key`); enables the AI Core model and live RPT-1 |
 | `AICORE_AUTH_URL`, `AICORE_BASE_URL`, `AICORE_RESOURCE_GROUP` | (manifest) | AI Core endpoints, resource group `default` |
-| `LITELLM_PROVIDER` | (manifest: `sap`) | LiteLLM provider for AI Core |
+| `LITELLM_PROVIDER` | (manifest: `sap`) | Unused: nothing reads it. LiteLLM takes the provider from the `sap/` prefix of `SYNAPSE_AICORE_MODEL_ID` |
 | `SYNAPSE_RPT_DEPLOYMENT_ID` | `d76cf689a05d504f` | SAP RPT-1 deployment; without AI Core credentials an empirical estimate is used, labeled as such |
 | `SYNAPSE_ERP_URL` | none: in-process mock | S/4 (or external mock) base URL |
 | `SYNAPSE_ERP_USER`, `SYNAPSE_ERP_PASSWORD` | none | **Secret.** Basic auth for a real S/4 |
@@ -112,10 +112,30 @@ cf logs synapsesupply-joule-yang-penting-daftar-dulu --recent | grep "A2A messag
 | `SYNAPSE_API_KEY` | none | **Secret.** Sent as `x-api-key` to the API |
 | `SYNAPSE_A2A_KEY` | none (open) | **Secret.** Joule must present it (the destination's Basic-auth password). Always set it in production: the agent holds the API key |
 | `SYNAPSE_CONSOLE_URL` | `<SYNAPSE_API_URL>/console` | Base for the console links in Joule replies |
+| `PORT` | `8090` | Used in the agent-card URL when `VCAP_APPLICATION` is absent (local runs) |
+
+### Console (Vite)
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `SYNAPSE_API` | `http://localhost:8080` | `npm run dev` proxy target |
+| `VITE_API_BASE` | same origin | API base for a separately hosted SPA (build time) |
+| `VITE_API_KEY` | none | **Secret.** Appended as `?api_key=` to every call; embedded in the bundle, so only for a separately hosted SPA |
+
+### AWS Lambdas (set by `infra/synapsesupply.yaml`)
+
+| Variable | Lambda | Purpose |
+|---|---|---|
+| `S4_URL` | poller | The API's `/s4` mock S/4 |
+| `SECRET_ID` | poller | Secrets Manager secret with `SYNAPSE_ERP_USER` / `SYNAPSE_ERP_PASSWORD` |
+| `QUEUE_URL` | poller | SQS FIFO queue `synapsesupply-cases.fifo` |
+| `CASES_TABLE` | poller | Cases already known are skipped |
+| `LOOKBACK_DAYS` | poller | Default `30`; not set by the stack |
+| `AGENT_RUNTIME_ARN` | dispatcher | AgentCore runtime to invoke |
 
 ### Local `.env` keys
 
-`AICORE_*`, `LITELLM_PROVIDER`, `SYNAPSE_CF_API_KEY` and `SYNAPSE_CF_A2A_KEY` (the deployed apps' keys,
+`AICORE_*`, `LITELLM_PROVIDER` (unused), `SYNAPSE_CF_API_KEY` and `SYNAPSE_CF_A2A_KEY` (the deployed apps' keys,
 kept here only so you can log in and redeploy), `JOULE_CLIENT_ID` and `JOULE_CLIENT_SECRET` (Joule
 Studio CLI login).
 
@@ -125,7 +145,7 @@ Studio CLI login).
 |---|---|---|---|
 | AI Core client id/secret | hackathon keybroker | `.env`; API app env; Secrets Manager `synapsesupply/runtime` (ap-southeast-2) | ask the organizers for a new key, then `cf set-env` + restart, and `put-secret-value` |
 | Joule client id/secret | hackathon keybroker | `.env` | ask the organizers |
-| API key | generated by us | `.env` (`SYNAPSE_CF_API_KEY`); API and Joule app env (`SYNAPSE_API_KEY`) | new random value in all three places, restart both apps |
+| API key | generated by us | `.env` (`SYNAPSE_CF_API_KEY`); API and Joule app env (`SYNAPSE_API_KEY`); Secrets Manager `synapsesupply/runtime` (`SYNAPSE_ERP_PASSWORD`, used by the poller and AgentCore for `/s4`) | new random value in `.env` and both apps, restart both apps, then re-run `./scripts/aws_deploy.sh` to update the secret |
 | CF Bedrock access key | IAM user `synapsesupply-cf-bedrock` | API app env only | re-run `scripts/cf_bedrock_credentials.sh` (deletes the old key) |
 | A2A key | generated by us | `.env` (`SYNAPSE_CF_A2A_KEY`); Joule app env; BTP destination password | new value in all three, restart the Joule app |
 
