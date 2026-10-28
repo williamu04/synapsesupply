@@ -46,12 +46,12 @@ class JsonlRecorder:
         self.path = Path(path)
 
     def __call__(self, event: TraceEvent) -> None:
-        with self.path.open("a") as f:
+        with self.path.open("a", encoding="utf-8") as f:
             f.write(event.model_dump_json() + "\n")
 
 
 def load_recording(path: str | Path) -> list[TraceEvent]:
-    return [TraceEvent.model_validate_json(line) for line in Path(path).read_text().splitlines() if line.strip()]
+    return [TraceEvent.model_validate_json(line) for line in Path(path).read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
 def format_event(event: TraceEvent) -> str:
