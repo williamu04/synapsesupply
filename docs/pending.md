@@ -86,7 +86,9 @@ It is the next step: the policies are already in AgentCore Policy's language (Ce
 Remote `origin` is `https://github.com/williamu04/synapsesupply` (first commit 2026-10-22). `.env` and
 generated files are ignored.
 
-## 7. Team rehearsal
+## 7. Team rehearsal: done
+
+Demo ran successfully with the revised UI.
 
 Run the 15 minutes in `demo.md` once, timed: console (SC-01 opens by itself) → approve in Joule →
 SC-03 in Joule → slides. Before the real demo: **Reset demo**, then click **SC-01** (SC-01 appears by
@@ -109,3 +111,8 @@ All five (AI Core key, Joule key, API key, A2A key, plus the CF Bedrock access k
 - **Joule notifications:** push escalations to the planner instead of waiting for "What needs my
   approval?".
 - **Real S/4HANA:** point `SYNAPSE_ERP_URL` at it; the OData client and tools stay the same.
+
+## Update the UI to match the custom one on Figma: done
+
+- Console UI is now custom with materials UI kit
+- All client-side works perfectly
